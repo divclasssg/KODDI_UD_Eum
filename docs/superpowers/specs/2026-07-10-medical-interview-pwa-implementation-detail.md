@@ -532,6 +532,8 @@ type ManualSummary = {
   originalUserText: string[];
   safetyNotice?: SafetyNotice;
   cautionText: string;
+  editedByUser: boolean;
+  editedAt?: string;
   createdAt: string;
 };
 
@@ -539,8 +541,10 @@ type ManualSummaryItem = {
   id: string;
   label: string;
   value: string;
+  originalValue?: string;
   source: "user_input" | "profile_snapshot" | "measurement" | "attachment";
   needsCheck?: boolean;
+  editedByUser?: boolean;
 };
 ```
 
@@ -552,6 +556,11 @@ type ManualSummaryItem = {
 - 분류가 애매하면 “확인 필요”로 표시한다.
 - 사진은 “사진 첨부 있음, 의료진 확인 필요”로 표시한다.
 - 영상은 “영상 첨부 있음”으로만 표시한다.
+- 사용자가 수동 요약을 직접 수정할 수 있다.
+- 사용자가 수정해도 `originalUserText`는 바꾸지 않는다.
+- 사용자가 항목 값을 수정하면 기존 값은 `originalValue`에 남길 수 있다.
+- 사용자가 수정한 항목은 `editedByUser: true`로 표시한다.
+- 사용자가 수정한 수동 요약은 “사용자가 수정함”을 표시한다.
 - `cautionText`에는 “이 정리는 AI가 만든 요약이 아니며, 사용자가 입력한 내용을 보기 쉽게 모은 것입니다.”를 넣는다.
 
 ## 4. IndexedDB 저장 구조
@@ -1078,7 +1087,284 @@ type ManualSummaryApiResponse = {
 - “AI 요약”이라는 표현을 쓰지 않는다.
 - 화면 제목은 “입력 내용 정리”로 한다.
 
-## 7. 동의와 개인정보 전송 범위
+## 7. Hugging Face 호출 방식
+
+1차 데모에서는 Hugging Face를 **무료 사용 범위 안에서만** 사용한다.
+
+확정 방식:
+
+- Next.js Route Handler에서만 Hugging Face를 호출한다.
+- 브라우저에서는 Hugging Face 토큰을 절대 사용하지 않는다.
+- 호출 방식은 Hugging Face Inference Providers의 OpenAI 호환 Chat Completions API를 우선 사용한다.
+- HTTP 엔드포인트는 `https://router.huggingface.co/v1/chat/completions`를 사용한다.
+- 모델 기본값은 `google/medgemma-1.5-4b-it`를 사용한다.
+- 유료 Inference Endpoint는 만들지 않는다.
+- Hugging Face PRO, 유료 GPU, Vertex AI는 사용하지 않는다.
+
+공식 문서 기준:
+
+- Hugging Face Inference Providers는 하나의 Hugging Face 토큰으로 여러 제공자를 거쳐 모델을 호출할 수 있다.
+- Chat Completions는 OpenAI 호환 형식으로 호출할 수 있다.
+- 구조화된 출력은 `response_format`과 JSON Schema를 사용할 수 있다.
+- 무료 사용자는 월별 무료 크레딧이 있지만, 무료 크레딧 양과 정책은 바뀔 수 있다.
+- MedGemma 모델은 사용 전에 Hugging Face에서 모델 사용 조건에 동의해야 한다.
+
+### 환경 변수
+
+```text
+HUGGINGFACE_API_TOKEN=
+HUGGINGFACE_MODEL_ID=google/medgemma-1.5-4b-it
+HUGGINGFACE_API_BASE_URL=https://router.huggingface.co/v1
+HUGGINGFACE_PROVIDER_POLICY=auto
+HUGGINGFACE_TIMEOUT_MS=30000
+```
+
+규칙:
+
+- `HUGGINGFACE_API_TOKEN`은 서버에서만 읽는다.
+- `HUGGINGFACE_API_BASE_URL`은 기본값을 코드에 둘 수 있다.
+- `HUGGINGFACE_PROVIDER_POLICY`는 기본 `auto`로 둔다.
+- 비용을 더 줄여야 할 때만 모델 id에 `:cheapest` 정책을 붙이는 방식을 검토한다.
+- 토큰이 없으면 AI 호출을 하지 않고 수동 요약으로 보낸다.
+
+### 요청 방식
+
+서버에서는 `fetch`를 사용해 직접 호출한다.
+
+기본 요청:
+
+```ts
+type HuggingFaceChatRequest = {
+  model: string;
+  messages: HuggingFaceMessage[];
+  temperature: number;
+  max_tokens: number;
+  stream: false;
+  response_format?: HuggingFaceResponseFormat;
+};
+
+type HuggingFaceMessage = {
+  role: "system" | "user" | "assistant";
+  content:
+    | string
+    | Array<
+        | { type: "text"; text: string }
+        | { type: "image_url"; image_url: { url: string } }
+      >;
+};
+```
+
+HTTP 요청:
+
+```ts
+await fetch(`${baseUrl}/chat/completions`, {
+  method: "POST",
+  headers: {
+    Authorization: `Bearer ${token}`,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify(requestBody),
+  signal: abortSignal,
+});
+```
+
+생성 옵션:
+
+| 용도 | temperature | max_tokens |
+|---|---:|---:|
+| 다음 질문 생성 | 0.2 | 700 |
+| S/O 요약 생성 | 0.1 | 1400 |
+| 재시도 | 0 | 900 |
+
+규칙:
+
+- 질문과 요약 모두 `stream: false`로 호출한다.
+- 응답 대기 시간은 30초로 둔다.
+- 타임아웃이 나면 `NETWORK_ERROR` 또는 `HF_UNAVAILABLE`로 처리한다.
+- 같은 요청은 자동으로 여러 번 반복하지 않는다.
+- JSON 파싱 실패일 때만 1회 재시도한다.
+
+### 모델 id 규칙
+
+기본 모델:
+
+```text
+google/medgemma-1.5-4b-it
+```
+
+정책:
+
+- 기본은 모델 id를 그대로 사용한다.
+- Hugging Face 라우터가 자동으로 가능한 제공자를 선택하게 둔다.
+- 비용 문제가 있으면 `google/medgemma-1.5-4b-it:cheapest`를 실험한다.
+- 특정 provider 고정은 1차 데모에서 하지 않는다.
+
+모델 접근 조건:
+
+- Hugging Face 계정에서 MedGemma 사용 조건에 동의해야 한다.
+- 토큰은 해당 모델을 호출할 권한이 있어야 한다.
+- 권한이 없으면 앱은 `HF_UNAVAILABLE`로 처리하고 수동 요약을 보여준다.
+
+### 텍스트 질문 생성 요청
+
+질문 생성에는 텍스트만 보낸다.
+
+포함:
+
+- 시스템 프롬프트
+- 현재 문진 상태
+- 저장된 기본 프로필과 의료정보 중 필요한 것
+- 현재 문진 답변
+- 질문 수
+- 이미 물어본 질문
+
+제외:
+
+- 이름
+- 연락처
+- 주소
+- 주민등록번호
+- 현재 문진과 관련 없는 과거 기록
+
+응답은 JSON Schema에 맞게 요청한다.
+
+```ts
+const responseFormat = {
+  type: "json_schema",
+  json_schema: {
+    name: "QuestionApiResponse",
+    strict: true,
+    schema: questionResponseJsonSchema,
+  },
+};
+```
+
+주의:
+
+- `response_format`을 사용해도 서버 검증은 반드시 한다.
+- 모델이나 provider가 구조화 출력을 제대로 지키지 못하면 기존 JSON 파싱/검증/재시도 흐름을 사용한다.
+
+### S/O 요약 생성 요청
+
+요약 생성에는 S/O 분류에 필요한 정보만 보낸다.
+
+포함:
+
+- 문진 답변
+- 오늘 측정값
+- 저장된 기본 프로필과 의료정보 snapshot
+- 첨부 파일 메타데이터
+- 사진 AI 전송 동의가 있는 사진
+
+규칙:
+
+- S/O 요약도 JSON Schema를 요청한다.
+- O는 사용자 제공 참고 정보로만 정리한다.
+- 진단명, 병명 추측, 치료 추천은 서버 검증에서 막는다.
+- 사진 설명이 불확실하면 `needsCheck: true`로 표시한다.
+
+### 사진 전송 방식
+
+사진은 사용자가 동의한 경우에만 보낸다.
+
+전송 조건:
+
+- AI 전송 동의가 있다.
+- 사진 AI 전송 동의가 있다.
+- 사진이 현재 문진과 관련 있다.
+- 사진이 압축되어 있다.
+
+전송 방식:
+
+- 압축 사진을 base64 data URL로 바꾼다.
+- Chat Completions `content` 배열에 `image_url`로 넣는다.
+- 사진은 최대 3장까지 보낼 수 있다.
+
+예:
+
+```ts
+const content = [
+  { type: "text", text: promptText },
+  {
+    type: "image_url",
+    image_url: {
+      url: "data:image/jpeg;base64,...",
+    },
+  },
+];
+```
+
+주의:
+
+- provider가 base64 data URL을 받지 못하면 사진 전송은 실패 처리한다.
+- 사진 전송이 실패해도 문진 전체를 실패시키지 않는다.
+- 이 경우 사진은 의료진용 요약에 첨부 목록으로만 남긴다.
+- 영상은 절대 MedGemma로 보내지 않는다.
+
+### 무료 범위 처리
+
+무료 범위 기준:
+
+- Hugging Face 월별 무료 크레딧 안에서만 데모한다.
+- 유료 결제가 필요한 상태가 되면 추가 호출하지 않는다.
+- 유료 Endpoint를 새로 만들지 않는다.
+- 무료 크레딧이 부족하면 수동 요약으로 전환한다.
+
+처리:
+
+- 429 응답은 `HF_RATE_LIMIT`으로 처리한다.
+- 결제나 크레딧 관련 오류는 `HF_RATE_LIMIT` 또는 `HF_UNAVAILABLE`로 처리한다.
+- 사용자는 다시 시도하거나 수동 요약을 볼 수 있다.
+
+### 응답 처리
+
+응답에서 사용하는 값:
+
+```ts
+const content = response.choices?.[0]?.message?.content;
+```
+
+규칙:
+
+- `content`가 없으면 실패 처리한다.
+- `content`가 문자열 JSON이면 파싱한다.
+- 파싱 후 앱의 스키마로 다시 검증한다.
+- 금지 표현이 있으면 제거하거나 실패 처리한다.
+- 검증 실패 시 1회 재시도한다.
+- 재시도도 실패하면 수동 요약으로 전환한다.
+
+### 오류 매핑
+
+| 상황 | 앱 오류 코드 | 처리 |
+|---|---|---|
+| 401 또는 403 | `HF_UNAVAILABLE` | 토큰/권한 확인 안내, 수동 요약 |
+| 404 또는 모델 미지원 | `HF_UNAVAILABLE` | 모델 사용 불가 안내, 수동 요약 |
+| 408 또는 타임아웃 | `NETWORK_ERROR` | 다시 시도 |
+| 429 | `HF_RATE_LIMIT` | 다시 시도, 수동 요약 |
+| 5xx | `HF_UNAVAILABLE` | 다시 시도, 수동 요약 |
+| JSON 파싱 실패 | `INVALID_AI_OUTPUT` | 1회 재시도 |
+| 금지 표현 포함 | `INVALID_AI_OUTPUT` | 제거 또는 수동 요약 |
+
+### 구현 파일
+
+```text
+lib/ai/
+  hfClient.ts
+  hfTypes.ts
+  hfErrors.ts
+  prompts.ts
+  validators.ts
+```
+
+역할:
+
+- `hfClient.ts`: Hugging Face HTTP 호출
+- `hfTypes.ts`: Hugging Face 요청/응답 타입
+- `hfErrors.ts`: Hugging Face 오류를 앱 오류 코드로 변환
+- `prompts.ts`: 질문/요약 프롬프트
+- `validators.ts`: JSON 스키마 검증과 금지 표현 검증
+
+## 8. 동의와 개인정보 전송 범위
 
 동의는 한 번에 뭉쳐서 받지 않는다.
 
@@ -1278,7 +1564,7 @@ Next.js 서버 API는 AI 요청에 필요한 정보만 만든다.
 - AI 동의를 거부해도 수동 문진과 수동 요약은 사용할 수 있다.
 - 사용자가 설정에서 동의를 바꿀 수 있다.
 
-## 8. 수동 요약 fallback
+## 9. 수동 요약 fallback
 
 수동 요약은 AI가 없을 때도 의료진에게 보여줄 내용을 만드는 기능이다.
 
@@ -1342,6 +1628,58 @@ AI 전송에 동의하지 않아 입력 내용 정리로 보여드려요.
 - 사진 해석하기
 - 사용자가 말하지 않은 내용 추가하기
 
+### 수동 요약 직접 수정
+
+사용자는 수동 요약 화면에서 내용을 직접 수정할 수 있다.
+
+이 기능의 목표:
+
+- 음성 인식이 틀린 내용을 사용자가 고칠 수 있게 한다.
+- 자동 정리가 어색한 문장을 사용자가 쉽게 바꿀 수 있게 한다.
+- 의료진에게 보여주기 전에 사용자가 표현을 정리할 수 있게 한다.
+
+수정할 수 있는 것:
+
+- 방문 이유 후보
+- 사용자가 입력한 증상 정리
+- 오늘 측정값의 표시 문구
+- 의료정보 표시 문구
+- 확인 필요 항목의 문구
+
+수정할 수 없는 것:
+
+- 원문 기록
+- 사진/영상 파일 자체
+- 첨부 파일이 있었다는 사실
+- 위험 신호 안내 기록
+- 생성 시각
+- “AI 요약 아님” 안내 문구
+
+규칙:
+
+- 편집 버튼을 누르면 수정 모드로 들어간다.
+- 수정 모드에서는 항목별로 문구를 고칠 수 있다.
+- 저장 버튼을 누르면 수정 내용이 수동 요약에 반영된다.
+- 취소 버튼을 누르면 수정 전 화면으로 돌아간다.
+- 수정된 수동 요약에는 “사용자가 수정함”을 표시한다.
+- 수정 시각을 `editedAt`에 저장한다.
+- 원문 기록은 절대 수정하지 않는다.
+- 사용자가 수정한 내용도 진단명, 병명 추측, 치료 추천 금지 규칙을 적용한다.
+
+화면 문구:
+
+```text
+사용자가 수정한 정리입니다.
+원문 기록은 아래에서 따로 확인할 수 있어요.
+```
+
+저장 전 검증:
+
+- 빈 항목은 저장하지 않는다.
+- 너무 긴 문장은 줄여 쓰라고 안내한다.
+- 진단명이나 치료 추천처럼 보이는 문구가 있으면 저장 전 경고한다.
+- 사용자가 그래도 저장하려 하면 “의료진 확인 필요” 표시를 붙인다.
+
 ### 수동 요약 화면 구조
 
 수동 요약 화면 제목:
@@ -1367,6 +1705,14 @@ AI 전송에 동의하지 않아 입력 내용 정리로 보여드려요.
 6. 첨부 파일
 7. 원문 기록
 8. 확인 필요 항목
+9. 수정 버튼
+
+수정 버튼:
+
+- 기본 화면에서는 `수정` 버튼을 보여준다.
+- 수정 모드에서는 `저장`, `취소` 버튼을 보여준다.
+- 버튼은 최소 48px 이상이어야 한다.
+- 수정한 뒤에는 상단에 “사용자가 수정함”을 보여준다.
 
 ### 수동 요약 항목 생성 예
 
@@ -1399,6 +1745,7 @@ AI 전송에 동의하지 않아 입력 내용 정리로 보여드려요.
   ],
   "medicalInfoItems": [],
   "attachmentItems": [],
+  "editedByUser": false,
   "cautionText": "이 정리는 AI가 만든 요약이 아니며, 사용자가 입력한 내용을 보기 쉽게 모은 것입니다."
 }
 ```
@@ -1418,20 +1765,27 @@ AI 전송에 동의하지 않아 입력 내용 정리로 보여드려요.
 
 - 로컬 저장 동의가 있으면 문진 기록에 저장한다.
 - 로컬 저장 동의가 없으면 현재 화면에서만 보여준다.
+- 사용자가 수정하면 수정된 수동 요약을 저장한다.
+- 수정 전 원문 기록은 그대로 보존한다.
 - PDF 내보내기는 가능하다.
 - PDF에는 “AI 요약 아님” 문구가 들어가야 한다.
+- 사용자가 수정한 경우 PDF에는 “사용자가 수정함” 문구가 들어가야 한다.
 
 ### 수동 요약 구현 완료 기준
 
 - AI 전송 동의가 없어도 수동 요약을 볼 수 있다.
 - Hugging Face 실패 시 수동 요약을 볼 수 있다.
 - 수동 요약은 “입력 내용 정리”로 표시된다.
+- 사용자가 수동 요약 내용을 직접 수정할 수 있다.
+- 사용자가 수정한 수동 요약에는 “사용자가 수정함”이 표시된다.
+- 사용자가 수정해도 원문 기록은 그대로 남는다.
 - 수동 요약에는 사용자 원문이 포함된다.
 - 수동 요약에는 사진/영상 첨부 목록이 포함된다.
 - 수동 요약에는 진단명이나 치료 추천이 들어가지 않는다.
 - 수동 요약 PDF에는 “AI 요약 아님” 문구가 들어간다.
+- 사용자가 수정한 수동 요약 PDF에는 “사용자가 수정함” 문구가 들어간다.
 
-## 9. 의료진용 요약 화면 정보 구조
+## 10. 의료진용 요약 화면 정보 구조
 
 의료진용 요약 화면은 진료실에서 바로 보여주는 화면이다.
 
@@ -1634,7 +1988,7 @@ PDF 금지:
 - 원문 기록을 펼쳐 볼 수 있다.
 - PDF 내보내기에도 같은 구조가 적용된다.
 
-## 10. MedGemma에 보내는 정보
+## 11. MedGemma에 보내는 정보
 
 MedGemma에는 필요한 정보만 보낸다.
 
@@ -1675,7 +2029,7 @@ MedGemma에는 필요한 정보만 보낸다.
 - 원본 사진은 보내지 않는다.
 - 영상은 MedGemma에 보내지 않는다.
 
-## 11. MedGemma 프롬프트 규칙
+## 12. MedGemma 프롬프트 규칙
 
 MedGemma의 원래 응답은 텍스트다.
 
@@ -2190,7 +2544,7 @@ JSON 앞뒤에 설명을 붙이지 않는다.
 - 요약 생성은 `INVALID_AI_OUTPUT`으로 실패 처리한다.
 - 사용자는 다시 시도하거나 수동 요약을 볼 수 있다.
 
-## 12. AI 응답 검증
+## 13. AI 응답 검증
 
 서버는 MedGemma 응답을 그대로 믿지 않는다.
 
@@ -2330,7 +2684,7 @@ MedGemma 응답은 텍스트일 수 있다.
 - 제거 후 의미가 이상하면 `INVALID_AI_OUTPUT`으로 실패 처리한다.
 - 실패하면 사용자는 다시 시도하거나 수동 요약을 볼 수 있다.
 
-## 13. 입력 방식과 첨부 파일 처리 상세
+## 14. 입력 방식과 첨부 파일 처리 상세
 
 이 앱은 사용자가 편한 방식으로 증상을 남기는 것이 중요하다.  
 그래서 글, 음성, 사진, 영상을 모두 받을 수 있어야 한다.
@@ -2509,7 +2863,7 @@ AI 전송 규칙:
 직접 글로 입력해 주세요.
 ```
 
-## 14. 잠금 설정
+## 15. 잠금 설정
 
 회원가입은 만들지 않는다.
 
@@ -2678,7 +3032,7 @@ PIN을 새로 만들려면 이 브라우저의 앱 데이터를 초기화해야 
 - PIN은 해시로 바꿔 IndexedDB `settings`에 저장한다.
 - 잠금 설정은 이 기기에서만 적용된다.
 
-## 15. 오류 처리
+## 16. 오류 처리
 
 오류 처리는 사용자가 문진을 포기하지 않게 만드는 장치다.
 
@@ -2962,7 +3316,7 @@ PIN이 맞지 않아요.
 - 저장 실패 시 사용자가 다시 시도하거나 첨부를 줄일 수 있다.
 - 오류 로그에 민감한 내용이 남지 않는다.
 
-## 16. 구현 파일 구조
+## 17. 구현 파일 구조
 
 Next.js 프로젝트를 만들면 아래 구조를 권장한다.
 
@@ -2987,6 +3341,8 @@ app/
 lib/
   ai/
     hfClient.ts
+    hfTypes.ts
+    hfErrors.ts
     prompts.ts
     validators.ts
   interview/
@@ -3028,23 +3384,50 @@ types/
 - `lib/errors`: 오류 코드를 사용자 문구와 다음 행동으로 바꾸는 규칙
 - `types`: 공통 타입
 
-## 17. 환경 변수
+## 18. 환경 변수
 
 필요한 환경 변수:
 
 ```text
 HUGGINGFACE_API_TOKEN=
 HUGGINGFACE_MODEL_ID=google/medgemma-1.5-4b-it
+HUGGINGFACE_API_BASE_URL=https://router.huggingface.co/v1
+HUGGINGFACE_PROVIDER_POLICY=auto
+HUGGINGFACE_TIMEOUT_MS=30000
 ```
 
 규칙:
 
-- `.env.local`에 저장한다.
+- 로컬 개발에서는 `.env.local`에 저장한다.
+- Vercel 배포에서는 Vercel 프로젝트의 Environment Variables에 저장한다.
 - 브라우저에서 접근 가능한 `NEXT_PUBLIC_` 이름을 쓰지 않는다.
 - 토큰이 없으면 AI API는 실패 응답을 준다.
 - 토큰이 없어도 수동 요약은 동작해야 한다.
+- `HUGGINGFACE_API_BASE_URL`을 비워두면 기본값 `https://router.huggingface.co/v1`을 사용한다.
+- `HUGGINGFACE_TIMEOUT_MS`를 비워두면 기본값 30000을 사용한다.
 
-## 18. 구현 완료 기준
+## 19. 배포 기준
+
+1차 웹 데모 배포 위치는 Vercel로 한다.
+
+배포 기준:
+
+- GitHub 저장소를 Vercel 프로젝트에 연결한다.
+- Next.js 기본 빌드 설정을 사용한다.
+- `HUGGINGFACE_API_TOKEN`은 Vercel Environment Variables에 저장한다.
+- `HUGGINGFACE_MODEL_ID`도 Vercel Environment Variables에 저장할 수 있다.
+- Hugging Face 토큰은 브라우저 코드에 노출하지 않는다.
+- IndexedDB에 저장된 기록은 배포 서버가 아니라 사용자 브라우저에 남는다.
+- Vercel 서버에는 문진 본문, 사진, 의료정보를 저장하지 않는다.
+- Vercel 서버 로그에도 문진 본문, 사진, 의료정보를 남기지 않는다.
+
+주의:
+
+- Vercel에 배포해도 사용자 데이터가 서버 DB에 저장되는 것은 아니다.
+- 같은 배포 주소와 같은 브라우저에서 접속해야 기존 IndexedDB 기록을 볼 수 있다.
+- 배포 주소가 바뀌면 브라우저 입장에서는 다른 앱처럼 보일 수 있다.
+
+## 20. 구현 완료 기준
 
 아래가 되면 1차 데모 구현 완료로 본다.
 
@@ -3084,6 +3467,12 @@ HUGGINGFACE_MODEL_ID=google/medgemma-1.5-4b-it
 ### AI
 
 - Next.js 서버 API가 Hugging Face를 호출한다.
+- Hugging Face 호출은 브라우저가 아니라 Next.js Route Handler에서만 일어난다.
+- Hugging Face Inference Providers OpenAI 호환 Chat Completions API를 사용한다.
+- Hugging Face 토큰은 브라우저 코드에 노출되지 않는다.
+- 기본 모델은 `google/medgemma-1.5-4b-it`이다.
+- Hugging Face 응답 대기 시간은 30초다.
+- 구조화 응답은 `response_format`과 JSON Schema를 우선 사용한다.
 - 질문 생성 API가 다음 질문을 반환한다.
 - 요약 생성 API가 S/O 요약을 반환한다.
 - MedGemma 응답이 JSON이 아니면 서버가 실패 처리하거나 다시 시도한다.
@@ -3098,12 +3487,16 @@ HUGGINGFACE_MODEL_ID=google/medgemma-1.5-4b-it
 - Hugging Face 실패 시 수동 요약을 볼 수 있다.
 - 수동 요약은 “입력 내용 정리”로 표시된다.
 - 수동 요약은 “AI 요약”이라고 표시되지 않는다.
+- 사용자가 수동 요약 내용을 직접 수정할 수 있다.
+- 사용자가 수정한 수동 요약에는 “사용자가 수정함”이 표시된다.
+- 사용자가 수정해도 원문 기록은 그대로 남는다.
 - 수동 요약에는 사용자 원문이 포함된다.
 - 수동 요약에는 오늘 측정값이 포함된다.
 - 수동 요약에는 사진/영상 첨부 목록이 포함된다.
 - 수동 요약에는 위험 신호 안내 기록이 포함된다.
 - 수동 요약에는 진단명, 병명 추측, 치료 추천이 들어가지 않는다.
 - 수동 요약 PDF에는 “AI 요약 아님” 문구가 들어간다.
+- 사용자가 수정한 수동 요약 PDF에는 “사용자가 수정함” 문구가 들어간다.
 
 ### 의료진용 요약 화면
 
@@ -3180,12 +3573,12 @@ HUGGINGFACE_MODEL_ID=google/medgemma-1.5-4b-it
 - MedGemma가 저장을 직접 하지 않는다.
 - 새 의료정보는 사용자 확인 후 저장한다.
 
-## 19. 아직 구현 전에 정해야 하는 것
+## 21. 확정된 추가 결정
 
-아래 내용은 구현 전에 한 번 더 정하면 좋다.
+현재 이 상세 설계서에서 구현 전에 추가로 정해야 하는 항목은 없다.
 
-1. 수동 요약 화면에서 사용자가 직접 수정할 수 있게 할지
+추가 확정:
 
-내 추천:
-
-- 수동 요약은 처음에는 자동 정리만 하고, 직접 수정은 뒤로 미룬다.
+- 수동 요약 화면에서 사용자가 내용을 직접 수정할 수 있다.
+- 사용자가 수정해도 원문 기록은 그대로 남긴다.
+- 사용자가 수정한 수동 요약과 PDF에는 “사용자가 수정함”을 표시한다.

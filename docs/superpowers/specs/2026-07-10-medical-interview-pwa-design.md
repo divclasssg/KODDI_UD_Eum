@@ -773,12 +773,12 @@ AI 요약 생성을 위해 입력한 증상 정보가 외부 AI 서비스로 전
 - UI 제작: 사용자가 Figma 기준으로 직접 제작
 - 저장 방식: IndexedDB
 - AI 연결: Next.js 서버 API에서 Hugging Face 호출
+- Hugging Face 호출 방식: Next.js 서버에서 Hugging Face Inference Providers OpenAI 호환 Chat Completions API 직접 호출
+- 잠금 설정 방식: 1차 데모에서는 4자리 PIN
 - 배포 전 데모: 로컬 실행 우선
+- 배포 위치: Vercel
 
 아직 정해야 하는 것:
 
-- 배포 위치
-- Hugging Face 호출 방식의 세부 설정
-- 잠금 설정 방식
 - Figma에 없는 저장 확인 화면의 최종 디자인
 - Figma에 없는 설정 화면의 최종 디자인
