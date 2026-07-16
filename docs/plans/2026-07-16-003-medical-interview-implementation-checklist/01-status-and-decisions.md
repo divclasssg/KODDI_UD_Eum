@@ -11,11 +11,11 @@
 - 앱 구현 진행률: **0/9 units 완료**
 - P0 요구사항: **0/20 검증 완료**
 - 자동 검증 gate: **3/7 통과**
-- 현재 단계: **U1 진행 중 — 프로젝트 기반 완료**
-- 다음 작업: **U1 SCSS token, 대표 문진 화면**
-- 현재 차단 요소: **Figma URL 미제공, Day 1~2 결정 항목 미확정**
+- 현재 단계: **U1 진행 중 — 프로젝트 기반·디자인 토큰 명세 승인 완료**
+- 다음 작업: **승인된 U1 SCSS token 구현, 대표 문진 화면**
+- 현재 차단 요소: **Day 1~2 결정 항목 미확정**
 
-현재 앱 저장소에는 Next.js App Router 스캐폴드와 실행 가능한 기본 화면이 있다. 프로젝트 설정·SCSS 연결·환경 계약·loopback 실행은 검증됐지만, U1 완료 조건인 디자인 토큰과 대표 문진 상태가 남아 있으므로 U1 unit은 아직 완료 처리하지 않는다.
+현재 앱 저장소에는 Next.js App Router 스캐폴드와 실행 가능한 기본 화면이 있다. 프로젝트 설정·SCSS 연결·환경 계약·loopback 실행과 디자인 토큰 명세 승인은 완료됐지만, U1 완료 조건인 토큰 코드와 대표 문진 상태가 남아 있으므로 U1 unit은 아직 완료 처리하지 않는다.
 
 ## 상태 표시와 갱신 규칙
 
@@ -42,6 +42,8 @@
   - 증거: 구현 계획의 `Execution Profile`
 - [x] U1~U9와 7일 일정 정의
   - 증거: 구현 계획의 `Seven-Day Schedule`, `Implementation Units`
+- [x] Figma 기반 디자인 토큰 구현 명세 승인
+  - 증거: [Design Token Foundation](../../superpowers/specs/2026-07-16-design-token-foundation-design.md)
 
 ## 구현 전 결정 Gate
 
