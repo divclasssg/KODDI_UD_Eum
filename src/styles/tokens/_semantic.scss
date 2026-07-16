@@ -1,0 +1,76 @@
+:root {
+  // Figma의 "Sementic" 오탈자는 코드에서 "semantic"으로 정규화한다.
+  // 읽기 쉬운 위계를 위해 secondary와 tertiary를 의도적으로 교환했다.
+  --color-text-brand: var(--color-teal-500);
+  --color-text-primary: var(--color-neutral-800);
+  --color-text-secondary: var(--color-neutral-700);
+  --color-text-tertiary: var(--color-neutral-600);
+  --color-text-on-primary: var(--color-white);
+  --color-text-disabled: var(--color-neutral-300);
+  --color-text-placeholder: var(--color-neutral-600);
+
+  --color-bg-brand-primary: var(--color-teal-500);
+  --color-bg-brand-secondary: var(--color-teal-100);
+  --color-bg-brand-disabled: var(--color-teal-200);
+  --color-bg-primary: var(--color-white);
+  --color-bg-secondary: var(--color-neutral-100);
+  --color-bg-disabled: var(--color-neutral-200);
+
+  --color-border-brand: var(--color-teal-500);
+  --color-border-brand-subtle: var(--color-teal-200);
+  --color-border-default: var(--color-neutral-400);
+  --color-border-secondary: var(--color-neutral-600);
+  --color-border-subtle: var(--color-neutral-300);
+
+  --color-icon-brand: var(--color-teal-500);
+  --color-icon-primary: var(--color-neutral-800);
+  --color-icon-secondary: var(--color-neutral-600);
+  --color-icon-tertiary: var(--color-neutral-400);
+  --color-icon-on-primary: var(--color-white);
+  --color-icon-disabled: var(--color-neutral-300);
+
+  --color-bg-error: var(--color-red-100);
+  --color-text-error: var(--color-red-700);
+  --color-icon-error: var(--color-red-700);
+  --color-border-error: var(--color-red-700);
+
+  --color-bg-warning: var(--color-amber-100);
+  --color-text-warning: var(--color-amber-700);
+  --color-icon-warning: var(--color-amber-700);
+  --color-border-warning: var(--color-amber-600);
+
+  --color-bg-success: var(--color-teal-100);
+  --color-text-success: var(--color-teal-700);
+  --color-icon-success: var(--color-teal-700);
+  --color-border-success: var(--color-teal-500);
+
+  --color-bg-info: var(--color-neutral-100);
+  --color-text-info: var(--color-neutral-800);
+  --color-icon-info: var(--color-neutral-800);
+  --color-border-info: var(--color-neutral-600);
+
+  --space-0: var(--measure-0);
+  --space-2: var(--measure-2);
+  --space-4: var(--measure-4);
+  --space-6: var(--measure-6);
+  --space-8: var(--measure-8);
+  --space-10: var(--measure-10);
+  --space-12: var(--measure-12);
+  --space-16: var(--measure-16);
+  --space-20: var(--measure-20);
+  --space-24: var(--measure-24);
+  --space-32: var(--measure-32);
+  --space-40: var(--measure-40);
+  --space-48: var(--measure-48);
+  --space-64: var(--measure-64);
+
+  --radius-sm: var(--measure-2);
+  --radius-md: var(--measure-4);
+  --radius-lg: var(--measure-8);
+  --radius-xl: var(--measure-12);
+  --radius-2xl: var(--measure-16);
+  --radius-rounded: 9999px;
+
+  --size-touch-target-min: var(--measure-48);
+  --size-control-min-height: var(--measure-48);
+}

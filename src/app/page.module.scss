@@ -1,21 +1,10 @@
 .page {
-  --background: #fafafa;
-  --foreground: #fff;
-
-  --text-primary: #000;
-  --text-secondary: #666;
-
-  --button-primary-hover: #383838;
-  --button-secondary-hover: #f2f2f2;
-  --button-secondary-border: #ebebeb;
-
   display: flex;
   flex: 1;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  font-family: var(--font-geist-sans);
-  background-color: var(--background);
+  background-color: var(--color-bg-secondary);
 }
 
 .main {
@@ -26,7 +15,7 @@
   flex-direction: column;
   align-items: flex-start;
   justify-content: space-between;
-  background-color: var(--foreground);
+  background-color: var(--color-bg-primary);
   padding: 120px 60px;
 }
 
@@ -35,30 +24,30 @@
   flex-direction: column;
   align-items: flex-start;
   text-align: left;
-  gap: 24px;
+  gap: var(--space-24);
 }
 
 .intro h1 {
   max-width: 320px;
-  font-size: 40px;
-  font-weight: 600;
-  line-height: 48px;
-  letter-spacing: -2.4px;
+  color: var(--color-text-primary);
+  font-size: var(--type-h1-size);
+  font-weight: var(--type-h1-weight-semibold);
+  line-height: var(--type-h1-line-height);
+  letter-spacing: var(--type-h1-letter-spacing);
   text-wrap: balance;
-  color: var(--text-primary);
 }
 
 .intro p {
   max-width: 440px;
-  font-size: 18px;
-  line-height: 32px;
+  color: var(--color-text-secondary);
+  font-size: var(--type-body-01-size);
+  line-height: var(--type-body-01-line-height);
   text-wrap: balance;
-  color: var(--text-secondary);
 }
 
 .intro a {
-  font-weight: 500;
-  color: var(--text-primary);
+  font-weight: var(--type-body-01-weight-medium);
+  color: var(--color-text-primary);
 }
 
 .ctas {
@@ -66,43 +55,43 @@
   flex-direction: row;
   width: 100%;
   max-width: 440px;
-  gap: 16px;
-  font-size: 14px;
+  gap: var(--space-16);
+  font-size: var(--type-caption-01-size);
+  line-height: var(--type-caption-01-line-height);
 }
 
 .ctas a {
   display: flex;
   justify-content: center;
   align-items: center;
-  height: 40px;
-  padding: 0 16px;
-  border-radius: 128px;
+  min-height: var(--size-control-min-height);
+  padding: var(--space-8) var(--space-16);
+  border-radius: var(--radius-rounded);
   border: 1px solid transparent;
   transition: 0.2s;
   cursor: pointer;
   width: fit-content;
-  font-weight: 500;
+  font-weight: var(--type-caption-01-weight-medium);
 }
 
 a.primary {
-  background: var(--text-primary);
-  color: var(--background);
-  gap: 8px;
+  background: var(--color-bg-brand-primary);
+  color: var(--color-text-on-primary);
+  gap: var(--space-8);
 }
 
 a.secondary {
-  border-color: var(--button-secondary-border);
+  border-color: var(--color-border-default);
 }
 
-/* Enable hover only on non-touch devices */
+/* 터치가 아닌 기기에서만 hover를 적용한다. */
 @media (hover: hover) and (pointer: fine) {
   a.primary:hover {
-    background: var(--button-primary-hover);
-    border-color: transparent;
+    border-color: var(--color-border-secondary);
   }
 
   a.secondary:hover {
-    background: var(--button-secondary-hover);
+    background: var(--color-bg-secondary);
     border-color: transparent;
   }
 }
@@ -113,30 +102,6 @@ a.secondary {
   }
 
   .intro {
-    gap: 16px;
-  }
-
-  .intro h1 {
-    font-size: 32px;
-    line-height: 40px;
-    letter-spacing: -1.92px;
-  }
-}
-
-@media (prefers-color-scheme: dark) {
-  .logo {
-    filter: invert(1);
-  }
-
-  .page {
-    --background: #000;
-    --foreground: #000;
-
-    --text-primary: #ededed;
-    --text-secondary: #999;
-
-    --button-primary-hover: #ccc;
-    --button-secondary-hover: #1a1a1a;
-    --button-secondary-border: #1a1a1a;
+    gap: var(--space-16);
   }
 }

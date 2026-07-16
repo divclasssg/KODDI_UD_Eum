@@ -1,0 +1,61 @@
+:root {
+  --font-family-sans: var(--font-pretendard);
+
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+
+  --font-size-12: 12px;
+  --font-size-14: 14px;
+  --font-size-16: 16px;
+  --font-size-18: 18px;
+  --font-size-20: 20px;
+  --font-size-22: 22px;
+  --font-size-24: 24px;
+  --font-size-28: 28px;
+  --letter-spacing-default: 0;
+
+  // Figma의 px 줄 높이는 승인된 참조 문서에 보존한다.
+  // 코드에서는 아래의 단위 없는 semantic 비율만 사용한다.
+  --type-h1-size: var(--font-size-28);
+  --type-h1-weight-regular: var(--font-weight-regular);
+  --type-h1-weight-medium: var(--font-weight-medium);
+  --type-h1-weight-semibold: var(--font-weight-semibold);
+  --type-h1-line-height: 1.35;
+  --type-h1-letter-spacing: var(--letter-spacing-default);
+  --type-h2-size: var(--font-size-24);
+  --type-h2-weight-regular: var(--font-weight-regular);
+  --type-h2-weight-medium: var(--font-weight-medium);
+  --type-h2-weight-semibold: var(--font-weight-semibold);
+  --type-h2-line-height: 1.4;
+  --type-sub-01-size: var(--font-size-22);
+  --type-sub-01-weight-regular: var(--font-weight-regular);
+  --type-sub-01-weight-medium: var(--font-weight-medium);
+  --type-sub-01-weight-semibold: var(--font-weight-semibold);
+  --type-sub-01-line-height: 1.45;
+  --type-sub-02-size: var(--font-size-20);
+  --type-sub-02-weight-regular: var(--font-weight-regular);
+  --type-sub-02-weight-medium: var(--font-weight-medium);
+  --type-sub-02-weight-semibold: var(--font-weight-semibold);
+  --type-sub-02-line-height: 1.45;
+  --type-body-01-size: var(--font-size-18);
+  --type-body-01-weight-regular: var(--font-weight-regular);
+  --type-body-01-weight-medium: var(--font-weight-medium);
+  --type-body-01-weight-semibold: var(--font-weight-semibold);
+  --type-body-01-line-height: 1.6;
+  --type-body-02-size: var(--font-size-16);
+  --type-body-02-weight-regular: var(--font-weight-regular);
+  --type-body-02-weight-medium: var(--font-weight-medium);
+  --type-body-02-weight-semibold: var(--font-weight-semibold);
+  --type-body-02-line-height: 1.6;
+  --type-caption-01-size: var(--font-size-14);
+  --type-caption-01-weight-regular: var(--font-weight-regular);
+  --type-caption-01-weight-medium: var(--font-weight-medium);
+  --type-caption-01-weight-semibold: var(--font-weight-semibold);
+  --type-caption-01-line-height: 1.5;
+  --type-caption-02-size: var(--font-size-12);
+  --type-caption-02-weight-regular: var(--font-weight-regular);
+  --type-caption-02-weight-medium: var(--font-weight-medium);
+  --type-caption-02-weight-semibold: var(--font-weight-semibold);
+  --type-caption-02-line-height: 1.5;
+}

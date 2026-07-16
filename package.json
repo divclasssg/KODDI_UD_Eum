@@ -12,6 +12,7 @@
     "build": "next build",
     "start": "next start --hostname 127.0.0.1",
     "lint": "eslint",
+    "test:tokens": "node --test tests/design-token-contract.test.mjs",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

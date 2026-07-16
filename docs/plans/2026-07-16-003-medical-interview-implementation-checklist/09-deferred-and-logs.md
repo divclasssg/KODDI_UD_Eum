@@ -22,6 +22,7 @@
 | 2026-07-16 | 구현 체크리스트 생성 | 완료 | 앱 코드 없음 확인, U1~U9·R1~R22·gate 매핑 | U1 시작 |
 | 2026-07-16 | U1 Next.js 프로젝트 기반 | 완료 | Next.js·SCSS·버전·환경 계약, lint·typecheck·build·loopback 검증 | 디자인 토큰 |
 | 2026-07-16 | 디자인 토큰 구현 명세 | 승인 완료 | Figma 매핑, 접근성 보정, Pretendard·48px·line-height 결정 | SCSS token 구현 |
+| 2026-07-17 | U1 SCSS 토큰·Pretendard | 완료 | 전체 토큰 계약·대비 4건, lint·typecheck·build, production 로컬 폰트 CSS 확인 | 대표 문진 화면·393px E2E |
 
 ## 차단 기록
 
