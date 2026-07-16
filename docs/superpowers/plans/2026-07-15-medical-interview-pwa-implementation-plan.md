@@ -1,7 +1,11 @@
 # 의료 면담 PWA 프로토타입 구현 계획
 
+> 상태: **과거 참고자료**. 현재 일정과 구현 판단은 [2026-07-16 실행 계획](../../plans/2026-07-16-002-feat-medical-interview-ut-ready-app-plan.md)을 우선한다.
+
+- 전체 문서: [docs/README.md](../../README.md)
+
 - 작성일: 2026-07-15
-- 상태: 실행 준비
+- 당시 상태: 실행 준비
 - 목표 기간: 6~9일
 - 기준 브랜치: `codex/add-design-spec`
 - 대상: Next.js 기반 모바일 우선 PWA 프로토타입
