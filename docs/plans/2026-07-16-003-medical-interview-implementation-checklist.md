@@ -15,8 +15,8 @@ source_plan: 2026-07-16-002-feat-medical-interview-ut-ready-app-plan.md
 - 마지막 갱신: 2026-07-16
 - 구현 진행률: **0/9 units**
 - P0 요구사항: **0/20 검증 완료**
-- 자동 검증 gate: **0/7 통과**
-- 다음 작업: **Day 1 · U1 프로젝트 설정·SCSS token·대표 문진 화면**
+- 자동 검증 gate: **3/7 통과**
+- 다음 작업: **Day 1 · U1 SCSS token·대표 문진 화면**
 - 실행 계획: [7일 구현 계획](./2026-07-16-002-feat-medical-interview-ut-ready-app-plan.md)
 - 전체 문서: [docs/README.md](../README.md)
 

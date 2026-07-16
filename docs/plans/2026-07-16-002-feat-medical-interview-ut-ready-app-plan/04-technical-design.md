@@ -19,7 +19,7 @@
 
 - KTD1. 앱 구현을 먼저 완료하고 UT 실행 코드는 만들지 않는다. (session-settled: user-directed — chosen over UT-console-first: 실제 검증 대상 앱이 먼저 필요함)
 - KTD2. Next.js App Router, TypeScript, ESLint, `src`, `@/*`, React Compiler를 사용한다. React Compiler는 build 실패 시 제외한다.
-- KTD3. SCSS partial과 primitive·semantic·component CSS Custom Properties를 사용하며 BEM 대신 하이픈 class name을 사용한다.
+- KTD3. 애플리케이션 스타일은 Sass/SCSS만 직접 사용한다. SCSS partial과 primitive·semantic·component CSS Custom Properties를 사용하며 BEM 대신 하이픈 class name을 사용한다. 별도 `postcss.config.*`를 만들지 않고 Next.js 기본 `postcss-preset-env`의 Autoprefixer로 브라우저 접두사를 처리한다. `postcss`와 `autoprefixer`를 직접 의존성으로 추가하지 않으며, Next.js가 내부적으로 요구하는 전이 `postcss`만 유지한다. 커스텀 PostCSS 설정이 필요해지는 경우에는 Next.js 기본 플러그인이 대체되므로 필요한 플러그인과 브라우저 대상을 함께 명시적으로 구성한다.
 - KTD4. Persona 문서는 런타임에 삽입하지 않는다. 짧은 문장, 한 질문, 큰 조작 영역, 일관된 위치, 낮은 입력 부담을 UI contract와 fixture로 변환한다.
 - KTD5. 질문 화면은 `text`, `choice`, `measurement`, `voice`, 조건부 `photo` adapter를 공유한다. 입력 방식 전환은 동일 draft와 answer state를 사용한다.
 - KTD6. IndexedDB는 profile, medical profile, interviews, messages, summaries, attachments를 저장한다. 완료 기록은 profile snapshot을 보존한다.
@@ -164,4 +164,3 @@ NEXT_PUBLIC_ENABLE_PHOTO_INPUT=false
 - 합성 Persona fixture 외 데이터를 입력하지 않는다. Route Handler는 request/response body를 로그에 남기지 않고 응답을 서버에 저장하지 않는다.
 - credential 없는 기본 `test:e2e`는 deterministic mock으로 실행한다. opt-in `test:actual`은 credential이 있는 환경에서 serial로 실행하고 provider/model/latency/validator 결과만 별도 증거로 남긴다.
 - mock과 actual 실행 결과를 분리하고 actual 실패를 mock 성공으로 대체하지 않는다.
-

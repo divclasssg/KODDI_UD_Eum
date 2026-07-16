@@ -5,13 +5,15 @@
 
 ### 자동 검증 Gate
 
-- [ ] `lint`
-- [ ] `typecheck`
+- [x] `lint`
+- [x] `typecheck`
 - [ ] unit tests
 - [ ] integration tests
 - [ ] deterministic mock `test:e2e`
 - [ ] opt-in serial `test:actual`
-- [ ] production build
+- [x] production build
+
+증거(2026-07-16): `npm run lint`, `npm run typecheck`, `npm run build` 종료 코드 0.
 
 ### 핵심 사용자 과업 Gate
 
@@ -42,4 +44,3 @@
 - [ ] dead route·placeholder feature·폐기 실험 코드 제거
 - [ ] 실패·미완료·범위 제외 항목 기록
 - [ ] Day 7에는 신규 기능을 추가하지 않음
-
