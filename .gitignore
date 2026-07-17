@@ -52,5 +52,5 @@ next-env.d.ts
 # local design review sessions
 .superpowers/
 
-# isolated development worktrees
+# 격리된 개발용 worktree
 .worktrees/
