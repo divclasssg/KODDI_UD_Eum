@@ -1,5 +1,8 @@
 /** 모든 공개 아이콘이 공통으로 받는 배치용 속성입니다. */
-export type IconProps = Readonly<{ className?: string }>;
+export type IconProps = {
+  readonly className?: string;
+  readonly "aria-label"?: never;
+};
 
 /** regular와 bold 선 굵기를 지원하는 아이콘 속성입니다. */
 export type WeightedIconProps = IconProps &

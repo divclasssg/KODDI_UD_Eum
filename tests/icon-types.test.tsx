@@ -24,6 +24,8 @@ const invalidChevronSize = <ChevronDownIcon size={32} />;
 const invalidWeight = <ChevronDownIcon weight="semibold" />;
 // @ts-expect-error 이미지 아이콘은 outline과 filled만 지원합니다.
 const invalidVariant = <ImageAddIcon variant="solid" />;
+// @ts-expect-error 접근 가능한 이름은 아이콘을 사용하는 요소에 지정합니다.
+const invalidSearchLabel = <SearchIcon aria-label="검색" />;
 // @ts-expect-error 접근 가능한 이름은 로고를 사용하는 요소에 지정합니다.
 const invalidLogoLabel = <Logo aria-label="이음" />;
 
@@ -34,5 +36,6 @@ void [
   invalidChevronSize,
   invalidWeight,
   invalidVariant,
+  invalidSearchLabel,
   invalidLogoLabel,
 ];

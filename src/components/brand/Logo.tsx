@@ -1,14 +1,12 @@
 import type { IconProps } from "@/components/icons/_internal/icon.types";
 
-type LogoProps = IconProps & Readonly<{ "aria-label"?: never }>;
-
 /**
  * 48×32 크기의 브랜드 로고입니다.
  *
  * 고유 색상을 유지하는 장식용 SVG입니다.
  * 링크나 헤더에서 사용할 때 접근 가능한 이름은 사용하는 요소에 지정합니다.
  */
-export function Logo({ className }: LogoProps) {
+export function Logo({ className }: IconProps) {
   return (
     <svg
       aria-hidden="true"
