@@ -18,3 +18,6 @@ export { LockIcon } from "./LockIcon";
 export { LockOpenIcon } from "./LockOpenIcon";
 export { MicrophoneIcon } from "./MicrophoneIcon";
 export { SearchIcon } from "./SearchIcon";
+export { ClockIcon } from "./ClockIcon";
+export { MessageIcon } from "./MessageIcon";
+export { UserIcon } from "./UserIcon";
