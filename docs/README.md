@@ -9,6 +9,7 @@
 3. [문서 관리 규칙](./documentation-policy.md)
 4. [디자인 토큰 구현 명세](./superpowers/specs/2026-07-16-design-token-foundation-design.md)
 5. [아이콘 시스템 설계](./superpowers/specs/2026-07-17-icon-system-design.md)
+6. [아이콘 시스템 구현 계획](./superpowers/plans/2026-07-17-icon-system-implementation-plan.md)
 
 현재 목표는 AI Persona UT를 실행하는 도구가 아니라, 해당 UT 시나리오를 충족하는 실제 문진 앱을 만드는 것이다. 앱은 실제 MedGemma 문진과 TTS/STT를 포함하며 UT 직접 수행은 후순위다.
 
