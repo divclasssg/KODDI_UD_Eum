@@ -119,6 +119,7 @@ For every exported SVG:
 5. Use `WeightedIconProps` and `weight === "bold"` for all except `CaretLeftIcon`.
 6. Use regular stroke 1.4 and bold stroke 2; `UndoUpRightIcon` alone uses regular 1.6.
 7. `CaretLeftIcon` uses `IconProps` and fixed stroke 2 because both Figma variants are identical.
+8. `CircleIcon`은 사용자가 승인한 예외로 처리한다. 잘못 내보내진 Figma regular의 27×24 형상은 보존하지 않고, regular와 bold 모두 중앙에 정렬된 같은 24×24 원형 path를 공유하며 `strokeWidth`만 regular 1.4, bold 2로 전환한다.
 
 The implementation shape for `CaretDownIcon.tsx` is:
 

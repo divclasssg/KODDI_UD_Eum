@@ -118,6 +118,7 @@ src/components/brand/
 - 좌표 반올림과 자동 path 단순화를 하지 않는다.
 - 선택·기본 상태가 색상만 다르면 React variant로 만들지 않는다.
 - Figma variant 오류가 있으므로 variant 속성 자동 추출에 의존하지 않는다.
+- `CircleIcon`은 승인된 예외로, 잘못 내보내진 Figma regular의 27×24 형상을 보존하지 않는다. regular와 bold 모두 중앙에 정렬된 같은 24×24 원형 path를 공유하며 선 굵기만 regular 1.4px, bold 2px로 전환한다.
 
 ## 크기
 
