@@ -19,10 +19,7 @@ export function Logo({ className }: LogoProps) {
       width={48}
       xmlns="http://www.w3.org/2000/svg"
     >
-      <path
-        d="M32 16C32 24.8366 24.8366 32 16 32C7.16344 32 0 24.8366 0 16C0 7.16344 7.16344 0 16 0C24.8366 0 32 7.16344 32 16Z"
-        fill="#16A9B1"
-      />
+      <circle cx={16} cy={16} r={16} fill="#16A9B1" />
       <path
         d="M16 16C16 7.16344 23.1634 0 32 0C40.8366 0 48 7.16344 48 16V32H32C23.1634 32 16 24.8366 16 16Z"
         fill="#545FD6"
