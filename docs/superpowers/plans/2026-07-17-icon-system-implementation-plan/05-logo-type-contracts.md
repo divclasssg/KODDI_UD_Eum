@@ -139,7 +139,7 @@ void [
 
 Run: `npm run test:icons && npm run lint && npm run typecheck`
 
-Expected: PASS, 5 Node tests, then lint and TypeScript exit code 0.
+Expected: PASS, 6 Node tests, then lint and TypeScript exit code 0.
 
 ```bash
 git add tests/icon-brand-contract.test.mjs tests/icon-types.test.tsx src/components/brand

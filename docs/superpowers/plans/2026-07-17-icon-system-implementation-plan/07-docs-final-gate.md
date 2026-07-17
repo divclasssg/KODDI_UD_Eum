@@ -15,7 +15,7 @@ npm run test:icons
 npm run test:tokens
 ```
 
-Expected: icon tests 5/5 and token tests 4/4 pass.
+Expected: icon tests 6/6 and token tests 4/4 pass.
 
 - [ ] **Step 2: Run repository quality gates**
 
@@ -63,7 +63,7 @@ Add under `## 아이콘 시스템`:
 ```markdown
 - 아이콘 23개와 Logo 1개를 승인된 이름과 variant 계약으로 구현했다.
 - 모든 공개 컴포넌트에 형태·속성·색상·접근성 사용법을 설명하는 한글 TSDoc을 추가했다.
-- `test:icons` 5/5, `test:tokens` 4/4, lint, typecheck, production build가 통과했다.
+- `test:icons` 6/6, `test:tokens` 4/4, lint, typecheck, production build가 통과했다.
 ```
 
 - [ ] **Step 6: Commit the final evidence**

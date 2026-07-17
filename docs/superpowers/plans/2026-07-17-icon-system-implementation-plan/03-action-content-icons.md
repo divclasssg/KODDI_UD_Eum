@@ -144,7 +144,7 @@ export { SearchIcon } from "./SearchIcon";
 
 Run: `npm run test:icons && npm run typecheck`
 
-Expected: PASS, 3 Node tests and TypeScript exit code 0.
+Expected: PASS, 4 Node tests and TypeScript exit code 0.
 
 - [ ] **Step 6: Commit the group**
 
