@@ -166,4 +166,3 @@ Expected: PASS, 1 test.
 git add package.json tests/icon-contract-helpers.mjs tests/icon-foundation-contract.test.mjs src/components/icons/_internal
 git commit -m "test(icons): establish typed SVG contracts"
 ```
-

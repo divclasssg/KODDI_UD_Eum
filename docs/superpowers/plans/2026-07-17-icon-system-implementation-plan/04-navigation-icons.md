@@ -130,4 +130,3 @@ Expected: PASS, 5 Node tests and TypeScript exit code 0.
 git add tests/icon-navigation-contract.test.mjs src/components/icons
 git commit -m "feat(icons): add navigation icons"
 ```
-

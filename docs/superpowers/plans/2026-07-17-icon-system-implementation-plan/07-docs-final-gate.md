@@ -74,4 +74,3 @@ git commit -m "docs: complete icon system implementation record"
 ```
 
 Do not push unless the user explicitly requests it.
-

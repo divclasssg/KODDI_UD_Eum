@@ -148,4 +148,3 @@ Expected: exit code 0 and no `src/app/icon-verification` files in `git status --
 git add docs/worklogs/2026-07-17.md
 git commit -m "docs: record icon visual verification"
 ```
-
