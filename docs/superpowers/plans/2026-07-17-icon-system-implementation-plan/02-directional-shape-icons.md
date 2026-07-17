@@ -173,7 +173,7 @@ export { UndoUpRightIcon } from "./UndoUpRightIcon";
 
 Run: `npm run test:icons && npm run typecheck`
 
-Expected: PASS, 2 Node tests and TypeScript exit code 0.
+Expected: PASS, 3 Node tests and TypeScript exit code 0.
 
 - [ ] **Step 6: Commit the group**
 
