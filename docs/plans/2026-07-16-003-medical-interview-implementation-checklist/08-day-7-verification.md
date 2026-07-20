@@ -39,7 +39,7 @@
 - [ ] 위험 안내가 일반 AI 질문보다 먼저 표시
 - [ ] 동의 철회 시 해당 외부 호출 0건
 - [ ] reset 뒤 모든 store 0건
-- [ ] 늦은 AI·STT 응답이 current revision에 반영되지 않음
+- [ ] 늦은 AI 응답·모의 음성 timer가 current revision에 반영되지 않음
 - [ ] TTS 자동 실행 없음·hidden content 미발화
 - [ ] 비동기 전환이 live region과 focus로 전달
 

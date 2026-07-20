@@ -43,6 +43,7 @@
 
 ## 작업 기록
 
+- [Modal MedGemma Task 1~3 구현 인계](./handoffs/2026-07-20-modal-medgemma-task-1-3.md)
 - [2026-07-20 작업일지](./worklogs/2026-07-20.md)
 - [2026-07-19 작업일지](./worklogs/2026-07-19.md)
 - [2026-07-17 작업일지](./worklogs/2026-07-17.md)
@@ -54,6 +55,7 @@
 - `docs/plans`: 활성 계획, 체크리스트와 그 상세 문서
 - `docs/superpowers/specs`: 승인된 제품·기술 설계와 과거 버전
 - `docs/superpowers/plans`: 승인 설계에서 파생된 단계별 구현 계획과 과거 계획
+- `docs/handoffs`: 다음 작업일에 그대로 재개하기 위한 불변 인계 기록
 - `docs/worklogs`: 날짜별 사실 기록
 
 새 문서를 만들기 전에 기존 상위 문서에 들어갈 링크인지 확인한다. 상세 내용이 200줄을 넘을 가능성이 있으면 처음부터 책임 단위 파일로 나눈다.

@@ -33,7 +33,7 @@
 
 **Requirements:** R21
 
-**Files:** `src/features/inputs/photo-input.tsx`, `src/lib/media/compress-image.ts`, `src/lib/db/attachment-repository.ts`, `src/lib/ai/vertex-medgemma-client.ts`, `tests/unit/media/compress-image.test.ts`, `tests/integration/interview/photo-input.test.tsx`, `tests/e2e/actual-photo-medgemma.spec.ts`
+**Files:** `src/features/inputs/photo-input.tsx`, `src/lib/media/compress-image.ts`, `src/lib/db/attachment-repository.ts`, `src/lib/ai/modal-medgemma-adapter.ts`, `tests/unit/media/compress-image.test.ts`, `tests/integration/interview/photo-input.test.tsx`, `tests/e2e/actual-photo-medgemma.spec.ts`
 
 **Approach:** 촬영·선택 뒤 크기·형식을 검사하고 client에서 압축한다. 사용자가 미리보기와 전송 범위를 확인한 뒤 저장·전송한다. actual multimodal response까지 통과하지 않으면 feature flag를 켜지 않는다.
 
@@ -41,7 +41,7 @@
 
 1. 허용 이미지가 압축·미리보기·삭제되고 새로고침 뒤 복구된다.
 2. 과대 파일·미지원 형식·압축 실패에서 원본을 전송하지 않는다.
-3. 별도 동의 전 사진 bytes가 Vertex 요청에 포함되지 않는다.
+3. 별도 동의 전 사진 bytes가 Modal 요청에 포함되지 않는다.
 4. 사진이 실제 MedGemma 질문 context에 포함되고 결과가 같은 validator를 통과한다.
 5. flag off build에는 사진 control과 빈 navigation이 없다.
 
@@ -66,7 +66,7 @@
 3. 상황 2가 세 Persona fixture에서 오늘 완료 기록과 clinician view까지 완주한다.
 4. 상황 3이 세 Persona fixture에서 과거 기록과 profile edit까지 완주한다.
 5. 393px에서 18px body, 48px target, visible focus, live status가 유지된다.
-6. AI·STT·IndexedDB 실패에서 입력을 잃지 않고 대체 행동을 제공한다.
+6. AI·모의 음성·IndexedDB 실패에서 입력을 잃지 않고 대체 행동을 제공한다.
 7. client bundle과 browser log에 credential, access token, system prompt, 의료 payload가 없다.
 8. 하나의 IndexedDB 상태와 동일 `interviewId`로 onboarding → 문진 → 요약 확정 → completed 저장 → 홈 → 오늘 기록 → clinician view를 연속 완주한다. Task 3은 같은 current profile과 과거 snapshot fixture를 함께 사용한다.
 9. production build와 README의 mock/actual 실행 설명이 일치한다.
@@ -74,4 +74,3 @@
 **Verification:** 모든 automated gate, 실제 MedGemma rehearsal, Figma visual review가 통과한다.
 
 ---
-

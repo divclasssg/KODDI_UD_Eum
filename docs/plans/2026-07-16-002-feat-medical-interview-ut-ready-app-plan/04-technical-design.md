@@ -35,7 +35,7 @@
 - KTD16. 외부 데모는 데스크톱 Chromium의 393×852 고정 프레임과 공개 Next.js 주소를 사용한다. 로그인 없이 합성 Persona만 허용하며 Origin 검증, 익명 session, rate limit, 일일 actual 상한, server kill switch와 Modal 월 hard budget을 적용한다.
 - KTD17. Vitest와 React Testing Library로 domain·component·Route Handler를, Playwright로 세 핵심 과업과 Persona fixture를 검증한다.
 - KTD18. 의존성 방향은 `UI → application service → pure domain machine → repository/provider ports`로 고정한다. 모든 비동기 명령은 `interviewId`, `revision`, `requestId`를 가지며 현재 revision과 일치할 때만 transaction으로 반영한다.
-- KTD19. navigation·reset·동의 철회 시 AI·STT 요청을 abort하고 pending operation을 폐기한다. 늦은 응답, 중복 제출, 삭제 후 재생성을 transaction과 revision guard로 차단한다.
+- KTD19. navigation·reset·동의 철회 시 AI 요청과 모의 음성 timer를 중단하고 pending operation을 폐기한다. 늦은 응답, 중복 제출, 삭제 후 재생성을 transaction과 revision guard로 차단한다.
 - KTD20. Route Handler는 `AiInterviewContextV1` allowlist DTO만 받으며 unknown field·식별정보·body limit 초과를 거절한다. client와 server가 위험 신호를 각각 검사하고, provider 출력은 server 검증 후 client가 저장 직전 다시 검증한다.
 - KTD21. 시스템 지시와 사용자 의료 텍스트를 구조적으로 분리하고 사용자 텍스트는 untrusted data로 취급한다. 모델 출력은 HTML·Markdown으로 해석하지 않고 text로만 렌더링한다.
 - KTD22. 요약은 `draft → review → saving → completed` 수명주기를 따르며 completed만 clinician view에 노출한다. 오늘 기록은 `Asia/Seoul`, completed 우선, 같은 날 최신순으로 정렬한다.
@@ -157,7 +157,7 @@ MODAL_PROXY_TOKEN_SECRET=
 DEMO_ALLOWED_ORIGIN=
 DEMO_HMAC_SECRET=
 MEDGEMMA_ACTUAL_DISABLED=1
-NEXT_PUBLIC_ENABLE_PHOTO_INPUT=false
+INTERVIEW_FIXTURE_MODE=0
 ```
 
 - Modal proxy token과 Hugging Face token은 server secret으로만 관리하고 저장소에 두지 않는다.
@@ -168,4 +168,4 @@ NEXT_PUBLIC_ENABLE_PHOTO_INPUT=false
 - credential 없는 기본 `test:e2e`는 deterministic mock으로 실행한다. opt-in `test:actual`은 credential이 있는 환경에서 serial로 실행하고 provider/model/latency/validator 결과만 별도 증거로 남긴다.
 - mock과 actual 실행 결과를 분리하고 actual 실패를 mock 성공으로 대체하지 않는다.
 
-현재 `.env.example`의 Vertex 변수는 Modal 구현 Task 2에서 위 목표 계약으로 교체한다. 문서 승인만으로 provider가 구현됐다고 간주하지 않는다.
+`.env.example`은 위 Modal 계약으로 교체했다. provider·Route Handler 단위 검증과 실제 Modal 인증·GPU 호출 성공은 별도 증거로 관리한다.

@@ -27,6 +27,8 @@
 | 2026-07-19 | U1 대표 문진 시각·접근성 E2E | 자동 검증 완료 | 393×852·440×900 측정, 9개 fixture·키보드·스크롤·snapshot E2E 14건 통과 | 실제 Chrome 200% 확대 수동 확인 |
 | 2026-07-19 | U1 대표 문진 200% 확대 | 수동 검증 완료 | 사용자가 실제 Chrome에서 바깥·내부 scroll, 입력·행동 접근, visible focus 확인 | MedGemma·환경 gate |
 | 2026-07-20 | Modal 외부 데모·모의 음성 설계 | 승인·계획 완료 | 공개 익명 합성 Persona, 인증 endpoint, quota·budget, 모의 transcript 계약 | Modal Task 1 |
+| 2026-07-20 | Modal Task 1·2 계약·Next proxy | 구현 완료 | DTO·validator·식별정보 탐지, Modal adapter·Route guard 단위 검증 | Modal Task 3 |
+| 2026-07-20 | Modal Task 3 quota·GPU runtime | 코드·로컬 검증 완료 | Python schema·quota·prompt·runtime 25건 통과, deploy 미실행 | Modal Task 4 |
 | 2026-07-20 | 이전 작업 기준점 재검증 | 완료 | lint·typecheck·단위 31건·계약 10건·Turbopack build·E2E 14건 | 문서 정리·커밋 |
 
 ## 차단 기록

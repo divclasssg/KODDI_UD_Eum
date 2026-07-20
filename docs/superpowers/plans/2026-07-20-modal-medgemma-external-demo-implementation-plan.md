@@ -53,9 +53,9 @@ tests/actual/modal-medgemma.actual.test.ts
 
 ## 작업 순서
 
-1. [ ] [공유 command·DTO·validator 계약](./2026-07-20-modal-medgemma-external-demo-implementation-plan/01-contracts-and-validation.md)
-2. [ ] [Next.js provider와 Route Handler](./2026-07-20-modal-medgemma-external-demo-implementation-plan/02-next-provider-and-routes.md)
-3. [ ] [Modal quota gate와 MedGemma GPU 함수](./2026-07-20-modal-medgemma-external-demo-implementation-plan/03-modal-runtime.md)
+1. [x] [공유 command·DTO·validator 계약](./2026-07-20-modal-medgemma-external-demo-implementation-plan/01-contracts-and-validation.md)
+2. [x] [Next.js provider와 Route Handler](./2026-07-20-modal-medgemma-external-demo-implementation-plan/02-next-provider-and-routes.md)
+3. [x] [Modal quota gate와 MedGemma GPU 함수](./2026-07-20-modal-medgemma-external-demo-implementation-plan/03-modal-runtime.md)
 4. [ ] [실제 화면 연결과 fallback](./2026-07-20-modal-medgemma-external-demo-implementation-plan/04-interview-integration.md)
 5. [ ] [actual gate·문서·최종 검증](./2026-07-20-modal-medgemma-external-demo-implementation-plan/05-actual-and-docs.md)
 
