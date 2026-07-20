@@ -8,10 +8,11 @@
 1. **의료 콘텐츠 계약:** required slot, 조기 종료·중복 기준, 위험 rule별 `stop_and_save | manual_summary`, 승인 문구, 중간 AI 실패 시 남은 manual 질문 선택, actual 모델 생성 parameter와 반복 성공 기준을 누가 승인할 것인가?
 2. **API·로컬 데이터 계약:** `AiInterviewContextV1` question/summary request·response, `ask | complete` union, stale/nil/empty/oversize 처리, IndexedDB v1 store·index·UTC timestamp·upgrade/reset 범위를 어떤 schema로 고정할 것인가?
 3. **Profile·의료진 화면 계약:** P0 기본·의료정보 필드, 필수·선택·미확인 표시, snapshot·AI context 포함 여부, clinician view 최소 정보 계층, `ai-unmodified | ai-user-edited | manual` provenance와 의미적 contradiction 검증 범위를 확정해야 한다.
-4. **상호작용·접근성 계약:** 홈·기록·내 정보 전역 navigation, 요약 수정 뒤 재생성·focus 복귀, STT/TTS 상호 배타 상태, 200% zoom·320 CSS px reflow, Figma의 focus·disabled·loading·error·safety·speech state 매핑을 확정해야 한다.
-5. **Loopback 보안 계약:** Vertex prediction 최소 권한 계정, Host·Origin allowlist, JSON/body/turn/concurrency 제한, quota·budget, provider·Cloud Logging retention, raw SDK error redaction, local TTS 판정 정책을 확정해야 한다.
-6. **7일 recovery ladder:** Day 3 actual gate가 늦을 때 STT 또는 Figma 정밀 반영을 내릴 수 있는지, 사진을 조건부로 유지할지 완전 후속으로 넘길지 결정해야 한다. actual MedGemma·근거 요약·TTS·Task 2·3 최소 route는 보호한다.
-7. **지원 사용자 경계:** 보호자·보조자 A5를 이번 P0 지원 대상으로 넣을지, 설명적 맥락으로만 두고 후속 범위로 넘길지 결정해야 한다.
+4. **상호작용·접근성 계약:** 홈·기록·내 정보 전역 navigation, 요약 수정 뒤 재생성·focus 복귀와 TTS 상태를 확정해야 한다. 대표 문진은 393×852 고정 프레임, 200% zoom scroll 접근, 실제 녹음·STT 없는 모의 음성으로 확정했다.
+5. **7일 recovery ladder:** Modal actual gate가 늦을 때 TTS 또는 Figma 정밀 반영을 내릴 수 있는지, 사진을 조건부로 유지할지 완전 후속으로 넘길지 결정해야 한다. actual MedGemma·근거 요약·Task 2·3 최소 route는 보호한다.
+6. **지원 사용자 경계:** 보호자·보조자 A5를 이번 P0 지원 대상으로 넣을지, 설명적 맥락으로만 두고 후속 범위로 넘길지 결정해야 한다.
+
+확정 결정: 공개 데모는 로그인 없이 합성 Persona 역할극으로 제공한다. mock과 인증된 Modal adapter를 분리하고 session 5회/분, IP 20회/시간, 전체 actual 100회/일, 월 $30 Workspace hard budget을 적용한다. 상세 계약은 [Modal 외부 데모 설계](../../superpowers/specs/2026-07-20-modal-medgemma-external-demo-design.md)를 따른다.
 
 ---
 

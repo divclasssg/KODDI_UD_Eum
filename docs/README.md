@@ -7,11 +7,18 @@
 1. [7일 구현 계획](./plans/2026-07-16-002-feat-medical-interview-ut-ready-app-plan.md)
 2. [구현 체크리스트](./plans/2026-07-16-003-medical-interview-implementation-checklist.md)
 3. [문서 관리 규칙](./documentation-policy.md)
-4. [디자인 토큰 구현 명세](./superpowers/specs/2026-07-16-design-token-foundation-design.md)
-5. [아이콘 시스템 설계](./superpowers/specs/2026-07-17-icon-system-design.md)
-6. [아이콘 시스템 구현 계획](./superpowers/plans/2026-07-17-icon-system-implementation-plan.md)
+4. [최종 프로토타입 필수 UI 목록](./superpowers/specs/2026-07-19-final-prototype-ui-inventory.md)
+5. [대표 문진 화면 설계](./superpowers/specs/2026-07-19-interview-screen-design.md)
+6. [대표 문진 상태 fixture 설계](./superpowers/specs/2026-07-19-interview-state-fixture-design.md)
+7. [대표 문진 화면 구현 계획](./superpowers/plans/2026-07-19-interview-screen-implementation-plan.md)
+8. [디자인 토큰 구현 명세](./superpowers/specs/2026-07-16-design-token-foundation-design.md)
+9. [아이콘 시스템 설계](./superpowers/specs/2026-07-17-icon-system-design.md)
+10. [아이콘 시스템 구현 계획](./superpowers/plans/2026-07-17-icon-system-implementation-plan.md)
+11. [Modal MedGemma 외부 데모 설계](./superpowers/specs/2026-07-20-modal-medgemma-external-demo-design.md)
+12. [Modal MedGemma 외부 데모 구현 계획](./superpowers/plans/2026-07-20-modal-medgemma-external-demo-implementation-plan.md)
+13. [모의 음성 입력 구현 계획](./superpowers/plans/2026-07-20-simulated-voice-input-implementation-plan.md)
 
-현재 목표는 AI Persona UT를 실행하는 도구가 아니라, 해당 UT 시나리오를 충족하는 실제 문진 앱을 만드는 것이다. 앱은 실제 MedGemma 문진과 TTS/STT를 포함하며 UT 직접 수행은 후순위다.
+현재 목표는 AI Persona UT 실행 도구가 아니라 해당 UT 시나리오를 충족하는 실제 문진 앱을 만드는 것이다. 외부 데모는 합성 Persona, Modal MedGemma, 실제 녹음·STT 없는 모의 음성 입력을 사용한다. 실제 환자 정보와 실제 음성 입력은 승인 범위가 아니다.
 
 ## 구현 판단의 우선순위
 
@@ -36,6 +43,8 @@
 
 ## 작업 기록
 
+- [2026-07-20 작업일지](./worklogs/2026-07-20.md)
+- [2026-07-19 작업일지](./worklogs/2026-07-19.md)
 - [2026-07-17 작업일지](./worklogs/2026-07-17.md)
 - [2026-07-16 작업일지](./worklogs/2026-07-16.md)
 - [2026-07-15 작업일지](./worklogs/2026-07-15.md)
@@ -43,8 +52,8 @@
 ## 폴더 규칙
 
 - `docs/plans`: 활성 계획, 체크리스트와 그 상세 문서
-- `docs/superpowers/specs`: 제품·기술 설계의 과거 버전
-- `docs/superpowers/plans`: 과거 실행 계획
+- `docs/superpowers/specs`: 승인된 제품·기술 설계와 과거 버전
+- `docs/superpowers/plans`: 승인 설계에서 파생된 단계별 구현 계획과 과거 계획
 - `docs/worklogs`: 날짜별 사실 기록
 
 새 문서를 만들기 전에 기존 상위 문서에 들어갈 링크인지 확인한다. 상세 내용이 200줄을 넘을 가능성이 있으면 처음부터 책임 단위 파일로 나눈다.

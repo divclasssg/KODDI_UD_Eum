@@ -12,11 +12,14 @@ source_plan: 2026-07-16-002-feat-medical-interview-ut-ready-app-plan.md
 
 ## 현재 상태
 
-- 마지막 갱신: 2026-07-17
+- 마지막 갱신: 2026-07-20
 - 구현 진행률: **0/9 units**
 - P0 요구사항: **0/20 검증 완료**
-- 자동 검증 gate: **3/7 통과**
-- 다음 작업: **Day 1 · U1 대표 문진 화면·393px 검증**
+- 자동 검증 gate: **5/7 통과**
+- 다음 작업: **Modal 구현 Task 1 · 공유 command·DTO·validator 계약**
+- 세부 구현 계획: [대표 문진 화면 구현 계획](../superpowers/plans/2026-07-19-interview-screen-implementation-plan.md)
+- Modal 계획: [외부 데모 구현 계획](../superpowers/plans/2026-07-20-modal-medgemma-external-demo-implementation-plan.md)
+- 음성 계획: [모의 음성 입력 구현 계획](../superpowers/plans/2026-07-20-simulated-voice-input-implementation-plan.md)
 - 실행 계획: [7일 구현 계획](./2026-07-16-002-feat-medical-interview-ut-ready-app-plan.md)
 - 전체 문서: [docs/README.md](../README.md)
 
