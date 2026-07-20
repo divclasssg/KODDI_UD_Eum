@@ -1,19 +1,9 @@
 import type { InterviewFixtureId } from "./fixtures/fixture.types";
+import type { InterviewCommandsPort } from "./interview-commands";
 import type {
   InterviewDraft,
   InterviewQuestion,
-  InterviewTurn,
 } from "./model/interview-ui.types";
-
-export type SaveAnswerInput = {
-  draft: InterviewDraft;
-  interviewId: string;
-  question: InterviewQuestion;
-};
-
-export type InterviewNextResult =
-  | { kind: "question"; question: InterviewQuestion }
-  | { kind: "complete" };
 
 export type FixtureCommandCounters = {
   ai: number;
@@ -21,15 +11,13 @@ export type FixtureCommandCounters = {
   save: number;
 };
 
-export type FixtureInterviewCommands = {
+export type FixtureInterviewCommands = InterviewCommandsPort & {
   calls: FixtureCommandCounters;
-  recordSafetyAction(action: string): void;
-  requestNext(history: InterviewTurn[]): Promise<InterviewNextResult>;
-  saveAnswer(input: SaveAnswerInput): Promise<InterviewTurn>;
 };
 
 const NEXT_QUESTION: InterviewQuestion = {
   id: "question-continuity",
+  slot: "pattern",
   text: "증상은 계속 이어지나요?",
   selection: "single",
   options: [
@@ -73,6 +61,19 @@ export function createFixtureInterviewCommands(
           id: `${NEXT_QUESTION.id}-${fixtureId}`,
           options: NEXT_QUESTION.options.map((option) => ({ ...option })),
         },
+      };
+    },
+    async requestSummary(history) {
+      calls.ai += 1;
+      await wait(1_200);
+      return {
+        subjective: history.map((turn) => ({
+          id: `summary-${turn.id}`,
+          text: turn.answer,
+          evidenceTurnIds: [turn.id],
+        })),
+        objective: [],
+        verificationNeeded: [],
       };
     },
     async saveAnswer({ draft, question }) {

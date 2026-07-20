@@ -12,6 +12,7 @@ import type {
 } from "./fixture.types";
 
 const INTERVIEW_ID = "fixture-interview-001";
+const PERSONA_ID = "persona-kim" as const;
 
 const BASE_HISTORY: InterviewTurn[] = [
   {
@@ -56,6 +57,7 @@ const SAVED_HISTORY: InterviewTurn[] = [
 
 const CURRENT_QUESTION: InterviewQuestion = {
   id: "question-duration",
+  slot: "duration",
   text: "증상이 시작된 지 얼마나 지났나요?",
   selection: "single",
   options: [
@@ -99,6 +101,8 @@ function createModel(
 ): InterviewViewModel {
   return {
     interviewId: INTERVIEW_ID,
+    personaId: PERSONA_ID,
+    roleplayConfirmed: true,
     state,
     history: cloneHistory(BASE_HISTORY),
     question: cloneQuestion(),

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import type { FixtureInterviewCommands } from "./fixture-interview-commands";
+import type { InterviewCommandsPort } from "./interview-commands";
 import type { InterviewCommands } from "./interview-screen";
 import type {
   InterviewDraft,
@@ -26,6 +26,7 @@ const EMPTY_DRAFT: InterviewDraft = {
 
 const MANUAL_QUESTION: InterviewQuestion = {
   id: "question-manual-continuity",
+  slot: "pattern",
   text: "증상이 지금도 계속되고 있나요?",
   selection: "single",
   options: [
@@ -41,7 +42,7 @@ function cloneDraft(draft: InterviewDraft): InterviewDraft {
 
 export function useInterviewController(
   initialModel: InterviewViewModel,
-  adapter: FixtureInterviewCommands,
+  adapter: InterviewCommandsPort,
 ) {
   const [model, setModel] = useState(initialModel);
   const [showSavingStatus, setShowSavingStatus] = useState(

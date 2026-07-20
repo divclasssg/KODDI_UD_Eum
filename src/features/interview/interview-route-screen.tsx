@@ -4,15 +4,15 @@ import { useState } from "react";
 
 import {
   createFixtureInterviewCommands,
-  type FixtureInterviewCommands,
 } from "./fixture-interview-commands";
 import type { InterviewFixtureId } from "./fixtures/fixture.types";
+import type { InterviewCommandsPort } from "./interview-commands";
 import { InterviewScreen } from "./interview-screen";
 import type { InterviewViewModel } from "./model/interview-ui.types";
 import { useInterviewController } from "./use-interview-controller";
 
 type InterviewControllerScreenProps = {
-  commands: FixtureInterviewCommands;
+  commands: InterviewCommandsPort;
   initialModel: InterviewViewModel;
 };
 

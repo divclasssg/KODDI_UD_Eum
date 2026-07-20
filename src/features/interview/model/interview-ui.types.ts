@@ -1,3 +1,10 @@
+import type {
+  DemoPersonaId,
+  InterviewQuestion,
+} from "./interview-domain.types";
+
+export type { InterviewQuestion } from "./interview-domain.types";
+
 export type InterviewUiState =
   | "answering"
   | "saving"
@@ -13,13 +20,6 @@ export type InterviewTurn = {
   id: string;
   question: string;
   answer: string;
-};
-
-export type InterviewQuestion = {
-  id: string;
-  text: string;
-  selection: "single" | "multiple";
-  options: { id: string; label: string }[];
 };
 
 export type InterviewDraft = {
@@ -52,6 +52,8 @@ export type InterviewSummaryTransition = {
 
 export type InterviewViewModel = {
   interviewId: string;
+  personaId: DemoPersonaId;
+  roleplayConfirmed: boolean;
   state: InterviewUiState;
   history: InterviewTurn[];
   question?: InterviewQuestion;
