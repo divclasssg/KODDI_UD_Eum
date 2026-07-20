@@ -13,6 +13,10 @@
 # testing
 /coverage
 
+# Playwright 실행 중 생성되는 임시 결과
+/playwright-report/
+/test-results/
+
 # next.js
 /.next/
 /out/

@@ -1,0 +1,15 @@
+.page {
+  width: 100vw;
+  height: 100vh;
+  overflow: auto;
+  background: var(--color-bg-secondary);
+}
+
+.stage {
+  display: flex;
+  min-width: 488px;
+  min-height: 948px;
+  align-items: flex-start;
+  justify-content: center;
+  padding: var(--space-24);
+}

@@ -1,0 +1,159 @@
+.device {
+  position: relative;
+  flex: 0 0 auto;
+  width: 440px;
+  height: 900px;
+}
+
+.viewport {
+  position: absolute;
+  top: 24px;
+  left: 23.5px;
+  z-index: 1;
+  display: flex;
+  width: 393px;
+  height: 852px;
+  overflow: hidden;
+  flex-direction: column;
+  color: var(--color-text-primary);
+  background: var(--color-bg-primary);
+  border-radius: 56px;
+}
+
+.frame {
+  position: absolute;
+  inset: 0 auto auto 0;
+  z-index: 2;
+  display: block;
+  width: 440px;
+  height: auto;
+  pointer-events: none;
+  user-select: none;
+}
+
+.status-bar {
+  display: flex;
+  width: 100%;
+  height: 48px;
+  flex: 0 0 48px;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-10) var(--space-32) 0;
+  font-size: var(--type-caption-01-size);
+  font-weight: var(--type-caption-01-weight-semibold);
+  line-height: var(--type-caption-01-line-height);
+}
+
+.time {
+  min-width: var(--space-40);
+  text-align: center;
+}
+
+.system-indicators {
+  display: flex;
+  height: var(--space-20);
+  align-items: center;
+  gap: var(--space-6);
+}
+
+.cellular {
+  display: flex;
+  height: var(--space-12);
+  align-items: flex-end;
+  gap: var(--space-2);
+}
+
+.cellular span {
+  display: block;
+  width: var(--space-2);
+  background: currentColor;
+  border-radius: var(--radius-sm);
+}
+
+.cellular span:nth-child(1) {
+  height: var(--space-4);
+}
+
+.cellular span:nth-child(2) {
+  height: var(--space-6);
+}
+
+.cellular span:nth-child(3) {
+  height: var(--space-8);
+}
+
+.cellular span:nth-child(4) {
+  height: var(--space-10);
+}
+
+.wifi {
+  width: var(--space-16);
+  height: var(--space-12);
+  border-top: var(--space-2) solid currentColor;
+  border-radius: 50% 50% 0 0;
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+}
+
+.battery {
+  position: relative;
+  display: flex;
+  width: var(--space-24);
+  height: var(--space-12);
+  align-items: center;
+  padding: var(--space-2);
+  border: 1px solid currentColor;
+  border-radius: var(--radius-md);
+}
+
+.battery::after {
+  position: absolute;
+  top: var(--space-4);
+  right: -3px;
+  width: var(--space-2);
+  height: var(--space-4);
+  content: "";
+  background: currentColor;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+
+.battery span {
+  width: 75%;
+  height: 100%;
+  background: currentColor;
+  border-radius: var(--radius-sm);
+}
+
+.header {
+  display: flex;
+  width: 100%;
+  height: 62px;
+  flex: 0 0 62px;
+  align-items: center;
+  padding: 0 var(--space-16);
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.home-link {
+  display: inline-flex;
+  min-width: var(--size-touch-target-min);
+  height: var(--size-touch-target-min);
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  color: var(--color-text-primary);
+  font-size: var(--type-body-02-size);
+  font-weight: var(--type-body-02-weight-medium);
+  line-height: var(--type-body-02-line-height);
+  border-radius: var(--radius-lg);
+}
+
+.home-link:focus-visible {
+  outline: var(--space-2) solid var(--color-border-brand);
+  outline-offset: var(--space-2);
+}
+
+.content {
+  min-height: 0;
+  flex: 1;
+  overflow: hidden;
+}
