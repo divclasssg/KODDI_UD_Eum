@@ -28,6 +28,8 @@
 
 **Verification:** mock contract, Route Handler integration, actual Modal 세 fixture가 각각 통과한다.
 
+**Actual evidence (2026-07-21):** 합성 Persona 세 명의 질문 9회·요약 3회가 T4 scale-to-zero에서 cold ≤75초, warm·요약 ≤15초와 schema·evidence gate를 통과했다. 이는 전체 앱의 요약 확정·저장·clinician view 완료 증거를 대체하지 않는다.
+
 ### U5. Voice Input, TTS, and Async Accessibility
 
 **Goal:** 말하기 부담과 읽기 어려움을 줄이면서 음성 기능 실패가 문진을 막지 않게 한다.

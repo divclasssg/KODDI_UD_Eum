@@ -13,7 +13,12 @@ from inference.modal_medgemma.medgemma_app import (
     GPU_TYPE,
     MODEL_ID,
     MODEL_IMAGE_PACKAGES,
+    MODEL_QUANTIZATION_MODE,
+    MODEL_RESIDUAL_DTYPE,
     MODEL_PYTHON_VERSION,
+    QUESTION_MAX_NEW_TOKENS,
+    SUMMARY_MAX_NEW_TOKENS,
+    WEB_TIMEOUT,
     GateRejected,
     execute_gate,
 )
@@ -45,15 +50,30 @@ def test_runtime_constants_match_the_approved_cost_envelope() -> None:
     assert GPU_MAX_CONTAINERS == 1
     assert GPU_SCALEDOWN_WINDOW == 60
     assert GPU_TIMEOUT == 60
+    assert QUESTION_MAX_NEW_TOKENS == 64
+    assert SUMMARY_MAX_NEW_TOKENS == 64
+    assert WEB_TIMEOUT == 85
+    assert MODEL_QUANTIZATION_MODE == "8bit"
+    assert MODEL_RESIDUAL_DTYPE == "float32"
     assert MODEL_IMAGE_PACKAGES == (
         "modal==1.5.2",
         "torch==2.13.0",
+        "torchvision==0.28.0",
         "transformers==5.14.1",
         "accelerate==1.14.0",
         "fastapi==0.139.2",
         "pydantic==2.13.4",
-        "huggingface-hub==1.3.4",
+        "huggingface-hub==1.5.0",
+        "pillow==12.3.0",
+        "bitsandbytes==0.49.2",
     )
+
+
+def test_t4_loads_linear_weights_in_8bit_and_keeps_residual_math_in_float32() -> None:
+    source = Path("inference/modal_medgemma/medgemma_app.py").read_text()
+
+    assert "BitsAndBytesConfig(load_in_8bit=True)" in source
+    assert "dtype=torch.float32" in source
 
 
 def test_invalid_schema_is_rejected_before_quota_and_gpu() -> None:
@@ -135,7 +155,9 @@ def test_valid_request_reserves_quota_then_returns_model_text() -> None:
     assert store["d:2026-07-20"] == 1
 
 
-def test_gpu_error_is_generalized_without_raw_detail() -> None:
+def test_gpu_error_is_generalized_without_raw_detail(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
     def generate(kind: str, context: dict[str, object]) -> str:
         raise RuntimeError("secret model payload")
 
@@ -149,6 +171,9 @@ def test_gpu_error_is_generalized_without_raw_detail() -> None:
         "generation-failed",
     )
     assert "secret model payload" not in str(caught.value)
+    captured = capsys.readouterr()
+    assert "generation_error=RuntimeError" in captured.out
+    assert "secret model payload" not in captured.out
 
 
 def test_smoke_app_is_not_imported_by_the_production_app() -> None:

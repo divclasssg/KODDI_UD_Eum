@@ -7,15 +7,15 @@
 
 ## 현재 상태
 
-- 마지막 갱신: 2026-07-20
+- 마지막 갱신: 2026-07-21
 - 앱 구현 진행률: **0/9 units 완료**
 - P0 요구사항: **0/20 검증 완료**
-- 자동 검증 gate: **5/7 통과**
-- 현재 단계: **U1 진행 중 — Modal runtime 코드·로컬 계약 검증 완료**
-- 다음 작업: **Modal Task 4 실제 문진 화면 연결과 fallback**
+- 자동 검증 gate: **6/7 통과**
+- 현재 단계: **U1 진행 중 — Modal Task 5 actual·quota·fallback·최종 검증 완료**
+- 다음 작업: **전체 UI 저장·기록·clinician view 미완료 범위 결정**
 - 현재 차단 요소: **IndexedDB·profile·clinician view 등 후속 계약 미확정**
 
-현재 앱 저장소에는 Next.js App Router 기반 `/interview/new`와 고정 iPhone 프레임, 9개 결정론적 상태 fixture가 있다. 프로젝트 설정·SCSS token·Pretendard 자체 호스팅, 문진 비동기·오류·안전 전환, 393×852 시각·키보드 E2E와 실제 브라우저 200% 확대 검증은 완료됐다. 공개 외부 데모용 Modal provider·Route Handler와 quota·GPU runtime 코드는 구현됐지만 실제 Modal 배포·GPU 호출 gate가 남아 있어 U1 unit은 아직 완료 처리하지 않는다.
+현재 앱 저장소에는 Next.js App Router 기반 `/interview/new`와 고정 iPhone 프레임, 9개 결정론적 상태 fixture가 있다. 프로젝트 설정·SCSS token·Pretendard 자체 호스팅, 문진 비동기·오류·안전 전환, 393×852 시각·키보드 E2E와 실제 브라우저 200% 확대 검증은 완료됐다. 공개 합성 Persona demo의 HTTP 화면 연결, 역할극 확인, stale 요청 폐기, 질문·요약 fallback도 로컬 검증했다. Modal `main`에서 세 합성 Persona 질문 9회·요약 3회 actual gate와 별도 CPU-only quota gate까지 통과했지만 전체 앱의 저장·기록·clinician view가 남아 있어 U1 unit은 아직 완료 처리하지 않는다.
 
 ## 상태 표시와 갱신 규칙
 

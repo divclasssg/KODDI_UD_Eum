@@ -6,6 +6,8 @@ import {
   createModalMedGemmaAdapter,
 } from "@/lib/ai/modal-medgemma-adapter";
 import {
+  MEDGEMMA_DEFAULT_TIMEOUT_MS,
+  MEDGEMMA_MAX_TIMEOUT_MS,
   createMedGemmaProvider,
   type AiRequestIdentity,
 } from "@/lib/ai/provider";
@@ -49,6 +51,11 @@ afterEach(() => {
 });
 
 describe("Modal MedGemma adapter", () => {
+  it("비용 우선 cold timeout 범위를 고정한다", () => {
+    expect(MEDGEMMA_DEFAULT_TIMEOUT_MS).toBe(75_000);
+    expect(MEDGEMMA_MAX_TIMEOUT_MS).toBe(85_000);
+  });
+
   it("proxy 인증과 허용된 네 개 필드만 Modal에 보낸다", async () => {
     const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(
       responseText({

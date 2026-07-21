@@ -12,7 +12,7 @@
 5. **7일 recovery ladder:** Modal actual gate가 늦을 때 TTS 또는 Figma 정밀 반영을 내릴 수 있는지, 사진을 조건부로 유지할지 완전 후속으로 넘길지 결정해야 한다. actual MedGemma·근거 요약·Task 2·3 최소 route는 보호한다.
 6. **지원 사용자 경계:** 보호자·보조자 A5를 이번 P0 지원 대상으로 넣을지, 설명적 맥락으로만 두고 후속 범위로 넘길지 결정해야 한다.
 
-확정 결정: 공개 데모는 로그인 없이 합성 Persona 역할극으로 제공한다. mock과 인증된 Modal adapter를 분리하고 session 5회/분, IP 20회/시간, 전체 actual 100회/일, 월 $30 Workspace hard budget을 적용한다. 상세 계약은 [Modal 외부 데모 설계](../../superpowers/specs/2026-07-20-modal-medgemma-external-demo-design.md)를 따른다.
+확정 결정: 공개 데모는 로그인 없이 합성 Persona 역할극으로 제공한다. mock과 인증된 Modal adapter를 분리하고 session 5회/분, IP 20회/시간, 전체 actual 100회/일, Workspace `$10` hard cap을 적용한다. 상세 계약은 [Modal 외부 데모 설계](../../superpowers/specs/2026-07-20-modal-medgemma-external-demo-design.md)를 따른다.
 
 ---
 

@@ -52,9 +52,9 @@ key는 `s:<minute>:<session_hash>`, `i:<hour>:<ip_hash>`, `d:<day>` 형식이다
 
 - [x] **Step 4: 모델 image와 GPU class를 구현한다**
 
-Python 3.12 image와 `modal==1.5.2`, `torch==2.13.0`, `transformers==5.14.1`, `accelerate==1.14.0`, `fastapi==0.139.2`, `pydantic==2.13.4`, `huggingface-hub==1.3.4`를 고정한다. 개발 요구사항에는 `pytest==9.1.1`을 고정한다. Modal image build function에서 gated model을 image layer에 내려받아 cold start 네트워크 다운로드를 없애며 `HF_TOKEN`은 `modal.Secret.from_name("medgemma-hf")`로만 주입한다.
+Python 3.12 image와 `modal==1.5.2`, `torch==2.13.0`, `torchvision==0.28.0`, `transformers==5.14.1`, `accelerate==1.14.0`, `fastapi==0.139.2`, `pydantic==2.13.4`, `huggingface-hub==1.5.0`, `pillow==12.3.0`, `bitsandbytes==0.49.2`를 고정한다. 개발 요구사항에는 `pytest==9.1.1`을 고정한다. Modal image build function에서 gated model을 image layer에 내려받아 cold start 네트워크 다운로드를 없애며 `HF_TOKEN`은 `modal.Secret.from_name("medgemma-hf")`로만 주입한다. `huggingface-hub`은 `transformers==5.14.1`의 `>=1.5.0,<2.0` 계약에 맞추고, `torchvision`과 Pillow는 MedGemma multimodal processor 초기화에 사용한다. `bitsandbytes`는 T4의 8비트 선형 가중치 검증에 사용한다.
 
-`@modal.enter()`에서 `AutoProcessor`와 `AutoModelForImageTextToText`를 float16으로 T4에 1회 로드한다. `generate`는 `do_sample=False`, `max_new_tokens=384`(질문) 또는 `768`(요약)이며 반환은 model text뿐이다. 로그에는 kind, latency, validator code만 기록한다.
+`@modal.enter()`에서 `AutoProcessor`와 `AutoModelForImageTextToText`를 `BitsAndBytesConfig(load_in_8bit=True)`와 float32 잔여 연산으로 T4에 1회 로드한다. float16은 첫 forward의 전체 logits가 NaN이 되어 사용하지 않는다. 질문은 assistant prefill로 `slot`·`text`만 최대 64토큰 생성하고 런타임이 version·kind·id·selection·option을 고정 조립한다. 요약도 assistant prefill로 짧은 `text`만 최대 64토큰 생성하며 런타임이 version·section·실제 context turn evidence ID를 조립한다. 모든 slot이 채워진 질문은 생성 없이 `complete`를 반환한다. 로그에는 payload 없이 생성 token 수와 latency·오류 유형만 기록한다.
 
 Modal Secret `medgemma-hf`에는 image build 전용 `HF_TOKEN`만 둔다. CPU gate의 별도 Secret `medgemma-runtime`에는 `MEDGEMMA_ACTUAL_DISABLED=1|0`만 두며 GPU 함수에는 주입하지 않는다.
 
@@ -67,7 +67,7 @@ Modal Secret `medgemma-hf`에는 image build 전용 `HF_TOKEN`만 둔다. CPU ga
 def infer(request: InferenceRequest) -> dict[str, object]: ...
 ```
 
-gate는 Pydantic 검증 → Dict quota 예약 → GPU `generate.remote()` 순서만 허용한다. quota 초과는 GPU 호출 없이 429, 비활성 kill switch는 503, schema 오류는 400으로 일반화한다. GPU 함수는 `gpu="T4"`, `min_containers=0`, `max_containers=1`, `scaledown_window=60`, `timeout=60`으로 시작한다.
+gate는 Pydantic 검증 → Dict quota 예약 → GPU `generate.remote()` 순서만 허용한다. quota 초과는 GPU 호출 없이 429, 비활성 kill switch는 503, schema 오류는 400으로 일반화한다. GPU 함수는 `gpu="T4"`, `min_containers=0`, `max_containers=1`, `scaledown_window=60`, `timeout=60`을 유지한다. scale-to-zero cold start를 수용하는 비용 우선 계약으로 CPU web 함수 timeout은 85초, Next provider 기본 timeout은 75초·허용 상한은 85초로 둔다.
 
 `quota_smoke_app.py`는 같은 `reserve_quota`를 호출하지만 GPU 함수와 모델 secret을 포함하지 않는 인증 test app(`medgemma-quota-smoke`)이다. 운영 app에서 import하거나 배포하지 않는다.
 

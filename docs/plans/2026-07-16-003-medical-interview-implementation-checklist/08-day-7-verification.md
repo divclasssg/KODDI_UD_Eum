@@ -10,7 +10,7 @@
 - [x] unit tests
 - [ ] integration tests
 - [x] deterministic mock `test:e2e`
-- [ ] opt-in serial `test:actual`
+- [x] opt-in serial `test:actual`
 - [x] production build
 
 증거(2026-07-16): `npm run lint`, `npm run typecheck`, `npm run build` 종료 코드 0.
@@ -20,6 +20,8 @@
 증거(2026-07-19): `npm run test:e2e`에서 production build 후 9개 fixture·키보드·스크롤·시각 snapshot E2E 14건이 통과했다.
 
 증거(2026-07-20): `npm run lint`, `npm run typecheck`, 문진 단위 31건, 아이콘 6건, token·Pretendard 4건과 기본 Turbopack production build가 통과했다. `test:e2e` lifecycle에서 Turbopack build worker 정지를 재현해 Playwright 준비 build만 Next.js 공식 `--webpack`으로 고정했고, production build와 Chromium E2E 14건이 통과했다.
+
+증거(2026-07-21): opt-in actual harness 5건은 credential 없이 명시적으로 skip된다. 활성화한 MedGemma gate에서 세 합성 Persona 질문 9회·요약 3회가 통과했고 CPU-only quota gate 4건도 통과했다. payload 본문과 credential은 출력하거나 기록하지 않았으며 최종 kill switch 재배포 뒤 인증 503을 확인했다.
 
 ### 핵심 사용자 과업 Gate
 
@@ -45,7 +47,7 @@
 
 ### 문서·정리 Gate
 
-- [ ] README에 mock/actual 실행법 기록
+- [x] README에 mock/actual 실행법 기록
 - [ ] `.env.example`과 실제 환경 계약 일치
 - [ ] dead route·임시 기능·폐기 실험 코드 제거
 - [ ] 실패·미완료·범위 제외 항목 기록

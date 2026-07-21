@@ -30,7 +30,7 @@ export interface MedGemmaProvider {
 
 - [x] **Step 1: adapter mapping 테스트를 작성한다**
 
-`Modal-Key`/`Modal-Secret`, body allowlist, 60초 abort, `401/403` no-retry, `429/503` 1회 retry, invalid JSON/schema no-retry, client에 일반화한 오류만 반환하는지 fetch mock으로 검증한다.
+`Modal-Key`/`Modal-Secret`, body allowlist, 비용 우선 기본 75초 abort와 85초 상한, `401/403` no-retry, `429/503` 1회 retry, invalid JSON/schema no-retry, client에 일반화한 오류만 반환하는지 fetch mock으로 검증한다.
 
 - [x] **Step 2: Route Handler guard 테스트를 작성한다**
 
@@ -57,7 +57,7 @@ Expected: module/route not found로 FAIL.
 ```dotenv
 MEDGEMMA_MODE=mock
 MEDGEMMA_MODEL_ID=google/medgemma-1.5-4b-it
-MEDGEMMA_TIMEOUT_MS=60000
+MEDGEMMA_TIMEOUT_MS=75000
 MEDGEMMA_MAX_REQUEST_BYTES=8192
 MODAL_MEDGEMMA_ENDPOINT_URL=
 MODAL_PROXY_TOKEN_ID=

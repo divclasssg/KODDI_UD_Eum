@@ -20,6 +20,14 @@
 
 현재 목표는 AI Persona UT 실행 도구가 아니라 해당 UT 시나리오를 충족하는 실제 문진 앱을 만드는 것이다. 외부 데모는 합성 Persona, Modal MedGemma, 실제 녹음·STT 없는 모의 음성 입력을 사용한다. 실제 환자 정보와 실제 음성 입력은 승인 범위가 아니다.
 
+## Modal 검증 명령
+
+- credential 없는 mock·로컬 검증: `npm run lint`, `npm run typecheck`, `npm run test:unit`, `npm run test:e2e`, `npm run build`, `.venv/bin/python -m pytest tests/modal`
+- actual harness 비활성 확인: `npm run test:actual` 실행 시 테스트 5건이 skip되어야 한다.
+- actual 검증: 사용자가 Hugging Face 약관·Modal Secret·proxy token·Workspace hard cap을 직접 준비하고 비용 발생을 승인한 뒤에만 `RUN_MEDGEMMA_ACTUAL=1 npm run test:actual`을 실행한다. 현재 Workspace hard cap은 `$10`이다.
+
+endpoint URL과 token 값은 server-only 환경 변수에만 두며 채팅, 문서, snapshot, git에 기록하지 않는다. mock 통과, actual 통과, 공개 호스팅 통과는 각각 별도 증거로 관리한다.
+
 ## 구현 판단의 우선순위
 
 1. 현재 사용자 지시
@@ -44,6 +52,7 @@
 ## 작업 기록
 
 - [Modal MedGemma Task 1~3 구현 인계](./handoffs/2026-07-20-modal-medgemma-task-1-3.md)
+- [2026-07-21 작업일지](./worklogs/2026-07-21.md)
 - [2026-07-20 작업일지](./worklogs/2026-07-20.md)
 - [2026-07-19 작업일지](./worklogs/2026-07-19.md)
 - [2026-07-17 작업일지](./worklogs/2026-07-17.md)

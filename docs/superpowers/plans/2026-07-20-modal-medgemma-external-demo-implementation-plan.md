@@ -17,7 +17,7 @@
 - `429`, `503`, 일시적 transport 오류만 1회 재시도한다.
 - `401`, `403`, schema·금지 출력 오류는 재시도하지 않는다.
 - T4, `min_containers=0`, `max_containers=1`, 60초 scale-down으로 시작한다.
-- Modal Workspace 월 예산은 $30 하드 캡으로 설정한다.
+- Modal Workspace에는 계획보다 엄격한 `$10` 하드 캡을 적용한다.
 - mock 성공, actual 성공, 외부 공개 성공을 서로 대체하지 않는다.
 - 사용자 요청 전에는 commit·push하지 않는다.
 
@@ -56,8 +56,8 @@ tests/actual/modal-medgemma.actual.test.ts
 1. [x] [공유 command·DTO·validator 계약](./2026-07-20-modal-medgemma-external-demo-implementation-plan/01-contracts-and-validation.md)
 2. [x] [Next.js provider와 Route Handler](./2026-07-20-modal-medgemma-external-demo-implementation-plan/02-next-provider-and-routes.md)
 3. [x] [Modal quota gate와 MedGemma GPU 함수](./2026-07-20-modal-medgemma-external-demo-implementation-plan/03-modal-runtime.md)
-4. [ ] [실제 화면 연결과 fallback](./2026-07-20-modal-medgemma-external-demo-implementation-plan/04-interview-integration.md)
-5. [ ] [actual gate·문서·최종 검증](./2026-07-20-modal-medgemma-external-demo-implementation-plan/05-actual-and-docs.md)
+4. [x] [실제 화면 연결과 fallback](./2026-07-20-modal-medgemma-external-demo-implementation-plan/04-interview-integration.md)
+5. [x] [actual gate·문서·최종 검증](./2026-07-20-modal-medgemma-external-demo-implementation-plan/05-actual-and-docs.md)
 
 ## 완료 gate
 

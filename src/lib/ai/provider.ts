@@ -40,6 +40,9 @@ export class MedGemmaProviderError extends Error {
   }
 }
 
+export const MEDGEMMA_DEFAULT_TIMEOUT_MS = 75_000;
+export const MEDGEMMA_MAX_TIMEOUT_MS = 85_000;
+
 type ProviderEnvironment = Partial<Pick<
   NodeJS.ProcessEnv,
   | "MEDGEMMA_MODE"
@@ -51,8 +54,12 @@ type ProviderEnvironment = Partial<Pick<
 >>;
 
 function readTimeout(value: string | undefined): number {
-  const timeout = Number(value ?? "60000");
-  if (!Number.isInteger(timeout) || timeout < 1 || timeout > 60_000) {
+  const timeout = Number(value ?? String(MEDGEMMA_DEFAULT_TIMEOUT_MS));
+  if (
+    !Number.isInteger(timeout) ||
+    timeout < 1 ||
+    timeout > MEDGEMMA_MAX_TIMEOUT_MS
+  ) {
     throw new MedGemmaProviderError("invalid-provider-config");
   }
   return timeout;
