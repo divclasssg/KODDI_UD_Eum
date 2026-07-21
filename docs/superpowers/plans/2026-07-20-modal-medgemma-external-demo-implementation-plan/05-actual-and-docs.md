@@ -91,4 +91,4 @@ Run: `git diff --check && npm run lint && npm run typecheck && npm run test:unit
 
 Expected: 모두 PASS. `git status --short`에서 의도한 파일만 검토하고 commit·push하지 않는다.
 
-증거(2026-07-21): `git diff --check`, lint, typecheck, TypeScript 단위 10개 파일·86건, Modal Python 36건, Chromium E2E 14건, webpack production build가 통과했고 actual 비활성 실행은 5건을 명시적으로 skip했다. E2E 첫 시도는 sandbox의 loopback bind `EPERM`으로 실패했으나 동일 명령을 로컬 서버 권한으로 재실행해 통과했다. main/test의 실행 task·container는 모두 0개이며 commit·push는 수행하지 않았다.
+증거(2026-07-21): `git diff --check`, lint, typecheck, TypeScript 단위 10개 파일·86건, Modal Python 36건, Chromium E2E 14건, webpack production build가 통과했고 actual 비활성 실행은 5건을 명시적으로 skip했다. E2E 첫 시도는 sandbox의 loopback bind `EPERM`으로 실패했으나 동일 명령을 로컬 서버 권한으로 재실행해 통과했다. 검증을 마친 시점에는 main/test의 실행 task·container가 모두 0개였으며 commit·push하지 않았다. 이후 사용자 요청에 따라 `9d04c54`, `5940fd2`를 커밋하고 `codex/modal-contracts`를 푸시한 뒤 `main`에 fast-forward 병합해 `origin/main`과 동기화했다.

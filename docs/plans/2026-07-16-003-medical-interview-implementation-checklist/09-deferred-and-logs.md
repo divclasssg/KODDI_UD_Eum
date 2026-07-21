@@ -27,6 +27,7 @@
 | 2026-07-19 | U1 대표 문진 시각·접근성 E2E | 자동 검증 완료 | 393×852·440×900 측정, 9개 fixture·키보드·스크롤·snapshot E2E 14건 통과 | 실제 Chrome 200% 확대 수동 확인 |
 | 2026-07-19 | U1 대표 문진 200% 확대 | 수동 검증 완료 | 사용자가 실제 Chrome에서 바깥·내부 scroll, 입력·행동 접근, visible focus 확인 | MedGemma·환경 gate |
 | 2026-07-20 | Modal 외부 데모·모의 음성 설계 | 승인·계획 완료 | 공개 익명 합성 Persona, 인증 endpoint, quota·budget, 모의 transcript 계약 | Modal Task 1 |
+| 2026-07-20 | 이전 작업 기준점 재검증 | 완료 | lint·typecheck·단위 31건·계약 10건·Turbopack build·E2E 14건 | 문서 정리·커밋 |
 | 2026-07-20 | Modal Task 1·2 계약·Next proxy | 구현 완료 | DTO·validator·식별정보 탐지, Modal adapter·Route guard 단위 검증 | Modal Task 3 |
 | 2026-07-20 | Modal Task 3 quota·GPU runtime | 코드·로컬 검증 완료 | Python schema·quota·prompt·runtime 25건 통과, deploy 미실행 | Modal Task 4 |
 | 2026-07-21 | Modal Task 4 화면 연결·fallback | 구현·로컬 검증 완료 | HTTP/fixture 분리, 역할극 확인, stale·history fallback, 관련 단위 85건·lint·typecheck 통과 | 승인 후 Modal Task 5 |
@@ -41,7 +42,7 @@
 | 2026-07-21 | 비용 우선 latency 기준 조정 | 부분 actual 통과·잠금 확인 | scale-to-zero 유지, cold 69.378초 ≤75초, warm 5.518초·5.223초 ≤15초, 모두 유효 응답·최종 503 | 세 Persona 질문·요약과 quota·fallback 전체 gate |
 | 2026-07-21 | Modal Task 5 전체 actual·quota | gate 통과·운영 잠금 | 세 Persona 질문 9회·요약 3회 통과, CPU-only quota 4/4, adapter/fallback 단위 36건, 최종 인증 503 | 최종 자동 검증 |
 | 2026-07-21 | Modal Task 5 최종 검증 | 완료 | diff·lint·typecheck·단위 86건·Python 36건·E2E 14건·build 통과, main/test container 0 | U1 잔여 범위 결정 |
-| 2026-07-20 | 이전 작업 기준점 재검증 | 완료 | lint·typecheck·단위 31건·계약 10건·Turbopack build·E2E 14건 | 문서 정리·커밋 |
+| 2026-07-21 | Modal Task 1~5 저장소 통합 | 완료 | `ac5be27`~`5940fd2`, feature push, `main` fast-forward, `origin/main` divergence `0 0`, 병합 후 전체 자동 검증 통과 | U1 잔여 gate·U2 저장 계약 |
 
 ## 차단 기록
 
