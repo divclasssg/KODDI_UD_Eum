@@ -61,6 +61,12 @@ test("키보드만으로 답변을 선택하고 제출한다", async ({ page }) 
   await page.goto("/interview/new?fixture=answering-default");
 
   await page.keyboard.press("Tab");
+  await expect(
+    page.getByRole("checkbox", {
+      name: "가상 인물로 체험하며 실제 정보를 입력하지 않겠습니다",
+    }),
+  ).toBeFocused();
+  await page.keyboard.press("Tab");
   await expect(page.getByRole("radio", { name: "오늘" })).toBeFocused();
   await page.keyboard.press("Space");
   await expect(page.getByRole("radio", { name: "오늘" })).toBeChecked();

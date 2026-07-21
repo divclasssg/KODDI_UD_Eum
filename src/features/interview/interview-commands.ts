@@ -18,8 +18,10 @@ export type InterviewNextResult =
   | { kind: "complete" };
 
 export type InterviewCommandsPort = {
+  dispose?(): void;
   recordSafetyAction(action: string): void;
   requestNext(history: InterviewTurn[]): Promise<InterviewNextResult>;
   requestSummary(history: InterviewTurn[]): Promise<InterviewSummary>;
+  reset?(): void;
   saveAnswer(input: SaveAnswerInput): Promise<InterviewTurn>;
 };

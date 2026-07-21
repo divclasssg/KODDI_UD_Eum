@@ -48,6 +48,7 @@ export function createFixtureInterviewCommands(
 
   return {
     calls,
+    dispose() {},
     recordSafetyAction() {
       calls.safety += 1;
     },
@@ -76,6 +77,7 @@ export function createFixtureInterviewCommands(
         verificationNeeded: [],
       };
     },
+    reset() {},
     async saveAnswer({ draft, question }) {
       calls.save += 1;
       await wait(900);

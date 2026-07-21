@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { DirectIdentifierInputError } from "./http-interview-commands";
 import type { InterviewCommandsPort } from "./interview-commands";
 import type { InterviewCommands } from "./interview-screen";
 import type {
@@ -15,6 +16,7 @@ export type InterviewControllerActions = {
   requestSafetyHelp(action: "call-119" | "show-to-bystander"): void;
   retryAi(): void;
   retrySave(draft: InterviewDraft): void;
+  setRoleplayConfirmed(confirmed: boolean): void;
   viewSummary(): void;
 };
 
@@ -40,6 +42,18 @@ function cloneDraft(draft: InterviewDraft): InterviewDraft {
   return { ...draft, selectedOptionIds: [...draft.selectedOptionIds] };
 }
 
+export function createDeterministicSummaryV1(history: InterviewTurn[]) {
+  return {
+    subjective: history.map((turn) => ({
+      id: `fallback-v1-${turn.id}`,
+      text: turn.answer,
+      evidenceTurnIds: [turn.id],
+    })),
+    objective: [],
+    verificationNeeded: [],
+  };
+}
+
 export function useInterviewController(
   initialModel: InterviewViewModel,
   adapter: InterviewCommandsPort,
@@ -57,9 +71,43 @@ export function useInterviewController(
   useEffect(() => {
     return () => {
       activeRequest.current += 1;
+      adapter.dispose?.();
       if (savingStatusTimer.current) clearTimeout(savingStatusTimer.current);
     };
-  }, []);
+  }, [adapter]);
+
+  const runSummary = useCallback(
+    async (history: InterviewTurn[], requestId: number) => {
+      setModel((current) => ({
+        ...current,
+        state: "summary-transition",
+        history,
+        question: undefined,
+        pending: undefined,
+        error: undefined,
+        summary: {
+          title: "문진 내용을 정리하고 있어요",
+          description: "잠시만 기다려 주세요.",
+        },
+      }));
+
+      let generatedSummary;
+      try {
+        generatedSummary = await adapter.requestSummary(history);
+      } catch {
+        generatedSummary = createDeterministicSummaryV1(history);
+      }
+      if (activeRequest.current !== requestId) return;
+
+      setModel((current) => ({
+        ...current,
+        state: "summary-ready",
+        summary: undefined,
+        generatedSummary,
+      }));
+    },
+    [adapter],
+  );
 
   const runAi = useCallback(
     async (history: InterviewTurn[], requestId: number) => {
@@ -77,15 +125,7 @@ export function useInterviewController(
         if (activeRequest.current !== requestId) return;
 
         if (result.kind === "complete") {
-          setModel((current) => ({
-            ...current,
-            state: "summary-transition",
-            pending: undefined,
-            summary: {
-              title: "문진 내용을 정리하고 있어요",
-              description: "잠시만 기다려 주세요.",
-            },
-          }));
+          await runSummary(history, requestId);
           return;
         }
 
@@ -114,7 +154,7 @@ export function useInterviewController(
         if (activeRequest.current === requestId) inFlight.current = false;
       }
     },
-    [adapter],
+    [adapter, runSummary],
   );
 
   const runSave = useCallback(
@@ -148,7 +188,7 @@ export function useInterviewController(
         setShowSavingStatus(false);
         const history = [...model.history, savedTurn];
         await runAi(history, requestId);
-      } catch {
+      } catch (error) {
         if (activeRequest.current !== requestId) return;
         if (savingStatusTimer.current) clearTimeout(savingStatusTimer.current);
         setShowSavingStatus(false);
@@ -160,8 +200,14 @@ export function useInterviewController(
           pending: undefined,
           error: {
             kind: "save",
-            title: "답변을 저장하지 못했어요",
-            description: "입력한 내용은 그대로 있어요. 다시 저장해 주세요.",
+            title:
+              error instanceof DirectIdentifierInputError
+                ? "실제 정보를 지워 주세요"
+                : "답변을 저장하지 못했어요",
+            description:
+              error instanceof DirectIdentifierInputError
+                ? "가상 인물의 정보만 남긴 뒤 다시 저장해 주세요."
+                : "입력한 내용은 그대로 있어요. 다시 저장해 주세요.",
           },
         }));
       }
@@ -171,10 +217,16 @@ export function useInterviewController(
 
   const submit = useCallback<InterviewCommands["submit"]>(
     (draft) => {
-      if (!model.question || model.state !== "answering") return;
+      if (
+        !model.roleplayConfirmed ||
+        !model.question ||
+        model.state !== "answering"
+      ) {
+        return;
+      }
       return runSave(model.question, draft);
     },
-    [model.question, model.state, runSave],
+    [model.question, model.roleplayConfirmed, model.state, runSave],
   );
 
   const actions: InterviewControllerActions = {
@@ -221,18 +273,19 @@ export function useInterviewController(
       if (!model.question) return;
       void runSave(model.question, draft);
     },
+    setRoleplayConfirmed(confirmed) {
+      if (inFlight.current) return;
+      setModel((current) => ({ ...current, roleplayConfirmed: confirmed }));
+    },
     viewSummary() {
       adapter.recordSafetyAction("view-summary");
-      setModel((current) => ({
-        ...current,
-        state: "summary-transition",
-        question: undefined,
-        safety: undefined,
-        summary: {
-          title: "문진 내용을 정리하고 있어요",
-          description: "잠시만 기다려 주세요.",
-        },
-      }));
+      if (inFlight.current) return;
+      inFlight.current = true;
+      const requestId = activeRequest.current + 1;
+      activeRequest.current = requestId;
+      void runSummary(model.history, requestId).finally(() => {
+        if (activeRequest.current === requestId) inFlight.current = false;
+      });
     },
   };
 

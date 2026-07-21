@@ -95,6 +95,72 @@
   border-top: 1px solid var(--color-border-subtle);
 }
 
+.roleplay-confirmation {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: var(--space-8);
+  padding: var(--space-12) var(--space-16) 0;
+  color: var(--color-text-warning);
+  background: var(--color-bg-primary);
+  font-size: var(--type-body-02-size);
+  line-height: var(--type-body-02-line-height);
+}
+
+.roleplay-confirmation label {
+  display: flex;
+  min-height: var(--size-touch-target-min);
+  align-items: center;
+  gap: var(--space-8);
+  color: var(--color-text-primary);
+  cursor: pointer;
+}
+
+.roleplay-confirmation input {
+  width: var(--space-20);
+  height: var(--space-20);
+  flex: 0 0 var(--space-20);
+  accent-color: var(--color-bg-brand-primary);
+}
+
+.roleplay-confirmation input:focus-visible {
+  outline: var(--space-2) solid var(--color-border-brand);
+  outline-offset: var(--space-2);
+}
+
+.roleplay-reminder {
+  color: var(--color-text-warning);
+  font-size: var(--type-body-02-size);
+  line-height: var(--type-body-02-line-height);
+}
+
+.generated-summary {
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-20) var(--space-16);
+  color: var(--color-text-primary);
+}
+
+.generated-summary section + section {
+  margin-top: var(--space-20);
+}
+
+.generated-summary h2 {
+  margin-bottom: var(--space-8);
+  font-size: var(--type-body-01-size);
+  line-height: var(--type-body-01-line-height);
+}
+
+.generated-summary ul {
+  padding-left: var(--space-20);
+}
+
+.generated-summary li,
+.generated-summary p {
+  font-size: var(--type-body-02-size);
+  line-height: var(--type-body-02-line-height);
+}
+
 .notice {
   display: flex;
   flex: 0 0 auto;

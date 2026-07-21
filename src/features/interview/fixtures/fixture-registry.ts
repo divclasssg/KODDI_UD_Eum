@@ -1,4 +1,7 @@
 import type {
+  DemoPersonaId,
+} from "../model/interview-domain.types";
+import type {
   InterviewDraft,
   InterviewQuestion,
   InterviewTurn,
@@ -13,6 +16,55 @@ import type {
 
 const INTERVIEW_ID = "fixture-interview-001";
 const PERSONA_ID = "persona-kim" as const;
+
+const PERSONA_QUERY_IDS = {
+  kim: "persona-kim",
+  lee: "persona-lee",
+  park: "persona-park",
+} as const satisfies Record<string, DemoPersonaId>;
+
+const DEMO_START_QUESTION: InterviewQuestion = {
+  id: "question-chief-complaint",
+  slot: "chief-complaint",
+  text: "어디가 불편하신가요?",
+  selection: "single",
+  options: [
+    { id: "headache", label: "두통" },
+    { id: "dizziness", label: "어지럼" },
+    { id: "other", label: "다른 불편함" },
+    { id: "unknown", label: "잘 모르겠어요" },
+  ],
+};
+
+export function resolveDemoPersonaId(raw: string | string[] | undefined) {
+  if (raw === undefined) return { ok: true, id: PERSONA_QUERY_IDS.kim } as const;
+  switch (raw) {
+    case "kim":
+    case "lee":
+    case "park":
+      return { ok: true, id: PERSONA_QUERY_IDS[raw] } as const;
+    default:
+      return { ok: false } as const;
+  }
+}
+
+export function createDemoInterviewModel(
+  personaId: DemoPersonaId,
+): InterviewViewModel {
+  const source = INTERVIEW_FIXTURES["answering-default"].model;
+  return {
+    ...source,
+    interviewId: `demo-${personaId}`,
+    personaId,
+    roleplayConfirmed: false,
+    history: [],
+    question: {
+      ...DEMO_START_QUESTION,
+      options: DEMO_START_QUESTION.options.map((option) => ({ ...option })),
+    },
+    draft: { ...source.draft, selectedOptionIds: [...source.draft.selectedOptionIds] },
+  };
+}
 
 const BASE_HISTORY: InterviewTurn[] = [
   {
@@ -68,6 +120,18 @@ const CURRENT_QUESTION: InterviewQuestion = {
   ],
 };
 
+const SAFETY_QUESTION: InterviewQuestion = {
+  id: "question-safety",
+  slot: "safety",
+  text: "지금 즉시 도움이 필요한 위험 신호가 있나요?",
+  selection: "single",
+  options: [
+    { id: "yes", label: "예" },
+    { id: "no", label: "아니요" },
+    { id: "unknown", label: "잘 모르겠어요" },
+  ],
+};
+
 const EMPTY_DRAFT: InterviewDraft = {
   selectedOptionIds: [],
   text: "",
@@ -92,6 +156,13 @@ function cloneQuestion(): InterviewQuestion {
   return {
     ...CURRENT_QUESTION,
     options: CURRENT_QUESTION.options.map((option) => ({ ...option })),
+  };
+}
+
+function cloneSafetyQuestion(): InterviewQuestion {
+  return {
+    ...SAFETY_QUESTION,
+    options: SAFETY_QUESTION.options.map((option) => ({ ...option })),
   };
 }
 
@@ -215,6 +286,7 @@ export const INTERVIEW_FIXTURES = {
   "safety-caution": defineFixture(
     "safety-caution",
     createModel("caution", {
+      question: cloneSafetyQuestion(),
       safety: {
         level: "caution",
         title: "주의가 필요한 답변이 있어요",

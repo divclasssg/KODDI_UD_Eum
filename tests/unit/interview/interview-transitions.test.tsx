@@ -1,15 +1,125 @@
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createFixtureInterviewCommands } from "@/features/interview/fixture-interview-commands";
-import { INTERVIEW_FIXTURES } from "@/features/interview/fixtures/fixture-registry";
-import { InterviewControllerScreen } from "@/features/interview/interview-route-screen";
+import {
+  createDemoInterviewModel,
+  INTERVIEW_FIXTURES,
+} from "@/features/interview/fixtures/fixture-registry";
+import {
+  InterviewControllerScreen,
+  InterviewRouteScreen,
+} from "@/features/interview/interview-route-screen";
+import type { InterviewCommandsPort } from "@/features/interview/interview-commands";
 
 afterEach(() => {
   vi.useRealTimers();
+  vi.unstubAllGlobals();
 });
 
 describe("문진 상태 전환", () => {
+  it("fixture mode에서는 제출 뒤에도 네트워크를 호출하지 않는다", async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi.fn<typeof fetch>();
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <InterviewRouteScreen
+        fixtureId="answering-default"
+        initialModel={INTERVIEW_FIXTURES["answering-default"].model}
+        mode="fixture"
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("radio", { name: "며칠에 걸침" }));
+    fireEvent.click(screen.getByRole("button", { name: "다음" }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2_100);
+    });
+
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("demo mode에서는 역할극 확인과 저장이 끝난 뒤 question을 한 번 호출한다", async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+      Response.json({
+        version: "1",
+        kind: "question",
+        question: {
+          id: "question-onset",
+          slot: "onset",
+          text: "증상은 언제 시작되었나요?",
+          selection: "single",
+          options: [{ id: "today", label: "오늘" }],
+        },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <InterviewRouteScreen
+        initialModel={createDemoInterviewModel("persona-kim")}
+        mode="demo"
+      />,
+    );
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    fireEvent.click(
+      screen.getByRole("checkbox", {
+        name: "가상 인물로 체험하며 실제 정보를 입력하지 않겠습니다",
+      }),
+    );
+    fireEvent.click(screen.getByRole("radio", { name: "두통" }));
+    fireEvent.click(screen.getByRole("button", { name: "다음" }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/ai/question",
+      expect.objectContaining({ method: "POST" }),
+    );
+  });
+
+  it("역할극 확인 전에는 입력과 actual 요청을 잠근다", async () => {
+    const requestNext = vi.fn<InterviewCommandsPort["requestNext"]>();
+    const commands: InterviewCommandsPort = {
+      dispose: vi.fn(),
+      recordSafetyAction: vi.fn(),
+      requestNext,
+      requestSummary: vi.fn(),
+      saveAnswer: vi.fn(async ({ draft, question }) => ({
+        id: "turn-confirmed",
+        question: question.text,
+        answer: draft.text,
+      })),
+    };
+    const model = {
+      ...INTERVIEW_FIXTURES["answering-default"].model,
+      roleplayConfirmed: false,
+    };
+
+    render(
+      <InterviewControllerScreen commands={commands} initialModel={model} />,
+    );
+
+    expect(screen.getByRole("radio", { name: "며칠에 걸침" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "다음" })).toBeDisabled();
+    expect(requestNext).not.toHaveBeenCalled();
+
+    fireEvent.click(
+      screen.getByRole("checkbox", {
+        name: "가상 인물로 체험하며 실제 정보를 입력하지 않겠습니다",
+      }),
+    );
+
+    expect(screen.getByRole("radio", { name: "며칠에 걸침" })).toBeEnabled();
+  });
+
   it("저장 1회가 끝난 뒤에만 AI를 호출한다", async () => {
     vi.useFakeTimers();
     const commands = createFixtureInterviewCommands("answering-default");
@@ -193,5 +303,99 @@ describe("문진 상태 전환", () => {
     expect(
       screen.queryByRole("button", { name: "119에 전화하기" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("저장 완료 뒤 질문 생성이 실패해도 history를 보존하고 수동 문진으로 전환한다", async () => {
+    const commands: InterviewCommandsPort = {
+      dispose: vi.fn(),
+      recordSafetyAction: vi.fn(),
+      requestNext: vi.fn().mockRejectedValue(new Error("provider raw error")),
+      requestSummary: vi.fn(),
+      saveAnswer: vi.fn(async ({ draft, question }) => ({
+        id: "turn-new",
+        question: question.text,
+        answer: draft.selectedOptionIds.includes("days") ? "며칠에 걸침" : "",
+      })),
+    };
+
+    render(
+      <InterviewControllerScreen
+        commands={commands}
+        initialModel={INTERVIEW_FIXTURES["answering-default"].model}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("radio", { name: "며칠에 걸침" }));
+    fireEvent.click(screen.getByRole("button", { name: "다음" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "저장한 답변은 남아 있어요",
+    );
+    expect(screen.queryByText("provider raw error")).not.toBeInTheDocument();
+    expect(screen.getByText("며칠에 걸침")).toBeVisible();
+
+    fireEvent.click(screen.getByRole("button", { name: "수동 문진으로 계속" }));
+
+    expect(
+      screen.getByRole("heading", { name: "증상이 지금도 계속되고 있나요?" }),
+    ).toBeVisible();
+    expect(screen.getByText("며칠에 걸침")).toBeVisible();
+  });
+
+  it("complete 뒤 요약을 한 번 요청하고 provider 실패 시 같은 history의 결정론적 요약을 표시한다", async () => {
+    const requestSummary = vi
+      .fn<InterviewCommandsPort["requestSummary"]>()
+      .mockRejectedValue(new Error("provider raw error"));
+    const commands: InterviewCommandsPort = {
+      dispose: vi.fn(),
+      recordSafetyAction: vi.fn(),
+      requestNext: vi.fn().mockResolvedValue({ kind: "complete" }),
+      requestSummary,
+      saveAnswer: vi.fn(async ({ question }) => ({
+        id: "turn-summary",
+        question: question.text,
+        answer: "며칠에 걸침",
+      })),
+    };
+
+    render(
+      <InterviewControllerScreen
+        commands={commands}
+        initialModel={INTERVIEW_FIXTURES["answering-default"].model}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("radio", { name: "며칠에 걸침" }));
+    fireEvent.click(screen.getByRole("button", { name: "다음" }));
+
+    await waitFor(() => expect(requestSummary).toHaveBeenCalledTimes(1));
+    expect(screen.getByRole("heading", { name: "주관적 정보" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "객관적 정보" })).toBeVisible();
+    expect(
+      screen.getByRole("heading", { name: "확인이 필요한 정보" }),
+    ).toBeVisible();
+    expect(screen.getAllByText("며칠에 걸침")).toHaveLength(2);
+    expect(screen.queryByText("provider raw error")).not.toBeInTheDocument();
+  });
+
+  it("화면이 사라질 때 진행 중 요청을 폐기한다", () => {
+    const dispose = vi.fn();
+    const commands: InterviewCommandsPort = {
+      dispose,
+      recordSafetyAction: vi.fn(),
+      requestNext: vi.fn(),
+      requestSummary: vi.fn(),
+      saveAnswer: vi.fn(),
+    };
+    const rendered = render(
+      <InterviewControllerScreen
+        commands={commands}
+        initialModel={INTERVIEW_FIXTURES["answering-default"].model}
+      />,
+    );
+
+    rendered.unmount();
+
+    expect(dispose).toHaveBeenCalledTimes(1);
   });
 });

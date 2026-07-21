@@ -14,6 +14,7 @@ export type InterviewUiState =
   | "caution"
   | "urgent"
   | "summary-transition"
+  | "summary-ready"
   | "safe-ended";
 
 export type InterviewTurn = {
@@ -62,4 +63,5 @@ export type InterviewViewModel = {
   error?: InterviewError;
   safety?: InterviewSafetyNotice;
   summary?: InterviewSummaryTransition;
+  generatedSummary?: import("./interview-domain.types").InterviewSummary;
 };

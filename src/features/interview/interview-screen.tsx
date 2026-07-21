@@ -6,6 +6,8 @@ import { ConversationViewport } from "./components/conversation-viewport";
 import { AsyncStatus } from "./components/async-status";
 import { ErrorNotice } from "./components/error-notice";
 import { ResponseComposer } from "./components/response-composer";
+import { GeneratedSummary } from "./components/generated-summary";
+import { RoleplayConfirmation } from "./components/roleplay-confirmation";
 import { SafetyNotice } from "./components/safety-notice";
 import type {
   InterviewDraft,
@@ -30,6 +32,7 @@ const LOCKED_STATES = new Set<InterviewViewModel["state"]>([
   "waiting-for-ai",
   "urgent",
   "summary-transition",
+  "summary-ready",
   "safe-ended",
 ]);
 
@@ -48,6 +51,7 @@ export function InterviewScreen({
   const question = initialModel.question;
   const headingId = question ? `interview-question-${question.id}` : undefined;
   const inputDisabled =
+    !initialModel.roleplayConfirmed ||
     LOCKED_STATES.has(initialModel.state) ||
     (initialModel.state === "answering" &&
       question !== undefined &&
@@ -105,6 +109,9 @@ export function InterviewScreen({
           title={initialModel.summary.title}
         />
       ) : null}
+      {initialModel.generatedSummary ? (
+        <GeneratedSummary summary={initialModel.generatedSummary} />
+      ) : null}
       {initialModel.error ? (
         <ErrorNotice
           error={initialModel.error}
@@ -126,21 +133,27 @@ export function InterviewScreen({
         />
       ) : null}
       {question && headingId ? (
-        <ResponseComposer
-          draft={draft}
-          headingId={headingId}
-          inputDisabled={inputDisabled}
-          onSubmit={submit}
-          onTextChange={(text) => {
-            setDraft((current) => ({ ...current, inputMode: "text", text }));
-          }}
-          onToggleOption={toggleOption}
-          onVoiceSelect={() => {
-            setDraft((current) => ({ ...current, inputMode: "voice" }));
-          }}
-          question={question}
-          submitDisabled={submitDisabled}
-        />
+        <>
+          <RoleplayConfirmation
+            checked={initialModel.roleplayConfirmed}
+            onChange={(checked) => actions?.setRoleplayConfirmed(checked)}
+          />
+          <ResponseComposer
+            draft={draft}
+            headingId={headingId}
+            inputDisabled={inputDisabled}
+            onSubmit={submit}
+            onTextChange={(text) => {
+              setDraft((current) => ({ ...current, inputMode: "text", text }));
+            }}
+            onToggleOption={toggleOption}
+            onVoiceSelect={() => {
+              setDraft((current) => ({ ...current, inputMode: "voice" }));
+            }}
+            question={question}
+            submitDisabled={submitDisabled}
+          />
+        </>
       ) : null}
     </section>
   );

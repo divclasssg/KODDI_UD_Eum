@@ -56,6 +56,9 @@ export function ResponseComposer({
         onTextChange={onTextChange}
         onVoiceSelect={onVoiceSelect}
       />
+      <p className={styles["roleplay-reminder"]}>
+        가상 인물의 입장에서만 답하고 실제 개인정보·건강정보를 입력하지 마세요.
+      </p>
       <p className={styles.helper} id={helperId}>
         {hasAnswer ? "답변을 확인한 뒤 다음을 눌러 주세요." : "답변을 선택하거나 입력해 주세요."}
       </p>
