@@ -8,14 +8,14 @@
 ## 현재 상태
 
 - 마지막 갱신: 2026-07-22
-- 앱 구현 진행률: **1/9 units 완료**
+- 앱 구현 진행률: **2/9 units 완료**
 - P0 요구사항: **0/20 검증 완료**
 - 자동 검증 gate: **7/7 통과**
-- 현재 단계: **U2 진행 중 — Figma 전체 onboarding과 IndexedDB v1 실제 제품 계약 연결 완료**
-- 다음 작업: **manual flow 실행 연결·profile 수정·reset UI**
+- 현재 단계: **U2 완료 — 실제 제품형 onboarding·수동 문진·profile 수정·reset 연결 완료**
+- 다음 작업: **U3 입력 전환·measurement·requestId 상태 계약**
 - 현재 차단 요소: **의료 콘텐츠·clinician view·후속 UI 계약 미확정**
 
-현재 앱 저장소에는 Next.js App Router 기반 `/interview/new`와 고정 iPhone 프레임, 9개 결정론적 상태 fixture가 있다. U2에서는 공개 데모에 Persona 선택·주입을 추가하지 않고 Figma의 스플래시, 소개, 기본 프로필, 하단 2·3 의료정보 흐름을 하나의 `/onboarding`으로 연결했다. 만 14세 미만과 로컬 저장·민감정보 처리 거부는 database 생성 없이 차단되고, AI 거부는 외부 요청 없이 홈에서 수동 경로를 안내한다. 생년월일과 확장 의료정보, 세 동의, 두 profile은 하나의 transaction으로 저장되며 새로고침 뒤 홈이 복원된다. 음성·사진 진입점은 공개 UI에 존재하지만 실제 권한·파일·외부 처리는 실행하지 않는다.
+현재 앱 저장소에는 Next.js App Router 기반 `/interview/new`의 개발 fixture 경로와 Persona 없는 실제 `/interview/manual` 경로가 분리돼 있다. 공개 흐름은 Figma의 스플래시, 소개, 기본 프로필, 하단 2·3 의료정보를 하나의 `/onboarding`으로 연결하고, 만 14세 미만과 필수 동의 거부를 database 생성 전에 차단한다. AI 거부 사용자는 외부 요청 없이 최대 다섯 개의 `manual-intake-v1` 질문을 저장·복원·완료할 수 있다. 프로필 수정은 과거 완료 snapshot을 바꾸지 않으며 reset은 runtime 작업을 취소하고 8개 store를 한 transaction으로 지운다. 음성·사진 진입점은 공개 UI에 존재하지만 실제 권한·파일·외부 처리는 실행하지 않는다.
 
 ## 상태 표시와 갱신 규칙
 
