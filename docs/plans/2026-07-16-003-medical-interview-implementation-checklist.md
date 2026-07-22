@@ -48,3 +48,13 @@ source_plan: 2026-07-16-002-feat-medical-interview-ut-ready-app-plan.md
 - `[ ] 후순위`: 7일 범위 밖
 - 구현 turn이 끝날 때 관련 상세 체크리스트와 진행 기록을 같은 변경에서 갱신한다.
 - mock 성공과 actual MedGemma 성공을 별도로 기록한다.
+
+## 검증 실행 운영
+
+- 개발 중에는 관련 RED/GREEN test와 영향받은 integration test만 실행한다.
+- 전체 lint·typecheck·unit·integration은 milestone 마지막에 병렬로 한 번 실행한다.
+- 전체 Chromium E2E와 production build는 `npm run test:e2e`로 최종 통합 지점에서 한 번 실행한다.
+- 검증한 commit을 fast-forward merge한 경우 동일 tree에서 전체 gate를 반복하지 않는다.
+- 문서 변경만 남은 경우 `git diff --check`와 문서 정합성만 확인한다.
+- 검증 뒤 source 변경이 없다면 완료 보고를 위해 동일 gate를 다시 실행하지 않는다.
+- 넓은 영향의 schema·build·runtime 변경이나 실제 실패 증거가 있을 때만 추가 전체 검증을 수행하고 이유를 작업일지에 남긴다.
