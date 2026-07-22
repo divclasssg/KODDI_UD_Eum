@@ -24,6 +24,8 @@
 18. [U2 IndexedDB v1 실제 제품형 온보딩 개정 계획](./superpowers/plans/2026-07-22-u2-v1-actual-onboarding-revision-plan.md)
 19. [U2 남은 범위·최소 U3 수동 문진 설계](./superpowers/specs/2026-07-22-u2-remaining-manual-profile-reset-design.md)
 20. [U2 수동 문진·프로필 수정·reset 구현 계획](./superpowers/plans/2026-07-22-u2-remaining-manual-profile-reset-implementation-plan.md)
+21. [U3 문진 상태·입력 계약 설계](./superpowers/specs/2026-07-22-u3-interview-state-input-contracts-design.md) — 구현 완료
+22. [U3 문진 상태·입력 계약 구현 계획](./superpowers/plans/2026-07-22-u3-interview-state-input-contracts-implementation-plan.md) — 검증 완료
 
 현재 목표는 AI Persona UT 실행 도구가 아니라 실제 문진 앱을 만드는 것이다. 공개 제품 흐름에는 Persona 선택·주입을 노출하지 않으며 향후 별도 설계에서만 검토한다. 기존 U1 검증 harness와 자동화 test는 합성·비식별 데이터만 사용한다. 실제 환자 정보와 실제 음성 입력은 개발·검증 범위가 아니다.
 

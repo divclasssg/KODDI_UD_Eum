@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
+import { createEmptyDraft } from "@/features/interview/domain/interview-draft";
+import { createManualInterviewService } from "@/features/interview/manual/manual-interview-service";
+import { MANUAL_QUESTION_SET_V2 } from "@/features/interview/manual/manual-question-set";
+
 import {
   toUtcTimestamp,
   type InterviewAggregateV1,
@@ -20,6 +24,7 @@ import {
   SYNTHETIC_DECLINED_AI_CONSENT_INPUT,
   SYNTHETIC_FINAL_PROGRESS_INPUT,
   SYNTHETIC_INTERVIEW_INPUT,
+  SYNTHETIC_INTERVIEW_V2_INPUT,
   SYNTHETIC_PROFILE_BUNDLE_INPUT,
   SYNTHETIC_PROGRESS_INPUT,
   SYNTHETIC_SUMMARY_INPUT,
@@ -59,6 +64,147 @@ describe("Interview repository", () => {
     expect(restored?.draft).toEqual(saved.draft);
     expect(restored?.messages.map(({ sequence }) => sequence)).toEqual([0, 1]);
     expect(restored?.interview.revision).toBe(2);
+
+    database.close();
+  });
+
+  it("database version 1에서 immutable 질문 snapshot과 V2 draft를 생성한다", async () => {
+    const repository = createInterviewRepository(database);
+
+    const created = await repository.create(SYNTHETIC_INTERVIEW_V2_INPUT);
+
+    expect(database.version).toBe(1);
+    expect(created.interview).toMatchObject({
+      schemaVersion: 2,
+      questionSetSnapshot: SYNTHETIC_INTERVIEW_V2_INPUT.questionSetSnapshot,
+    });
+    expect(created.draft).toMatchObject({
+      schemaVersion: 2,
+      input: { commonDraft: { contractVersion: 2 } },
+    });
+
+    database.close();
+  });
+
+  it("V1 진행 draft를 첫 명시적 upgrade transaction에서 V2로 올린다", async () => {
+    const repository = createInterviewRepository(database);
+    const created = await repository.create({
+      ...SYNTHETIC_INTERVIEW_INPUT,
+      id: "legacy-manual-v1",
+      draft: {
+        currentQuestion: SYNTHETIC_INTERVIEW_V2_INPUT.draft.currentQuestion,
+        input: { mode: "text", text: "", selectedOptionIds: [] },
+        updatedAt: SYNTHETIC_INTERVIEW_INPUT.draft.updatedAt,
+      },
+    });
+    const commonDraft = structuredClone(
+      SYNTHETIC_INTERVIEW_V2_INPUT.draft.input.commonDraft,
+    );
+    commonDraft.values.text.value = "합성 legacy 복원 입력";
+
+    const upgraded = await repository.upgradeLegacyDraft(token(created), {
+      questionSetSnapshot: SYNTHETIC_INTERVIEW_V2_INPUT.questionSetSnapshot,
+      commonDraft,
+      updatedAt: toUtcTimestamp("2026-07-22T01:00:05.000Z"),
+    });
+
+    expect(database.version).toBe(1);
+    expect(upgraded.interview).toMatchObject({
+      schemaVersion: 2,
+      revision: 2,
+      questionSetSnapshot: SYNTHETIC_INTERVIEW_V2_INPUT.questionSetSnapshot,
+    });
+    expect(upgraded.draft?.schemaVersion).toBe(2);
+
+    database.close();
+  });
+
+  it("draft persist가 interview와 draft revision만 함께 증가시킨다", async () => {
+    const repository = createInterviewRepository(database);
+    const created = await repository.create(SYNTHETIC_INTERVIEW_V2_INPUT);
+    const commonDraft = structuredClone(
+      SYNTHETIC_INTERVIEW_V2_INPUT.draft.input.commonDraft,
+    );
+    commonDraft.values.text.value = "합성 저장 전 초안";
+
+    const saved = await repository.persistDraft(token(created), {
+      commonDraft,
+      updatedAt: toUtcTimestamp("2026-07-22T01:00:10.000Z"),
+    });
+
+    expect(saved.interview.revision).toBe(2);
+    expect(saved.draft?.revision).toBe(2);
+    expect(saved.draft?.schemaVersion).toBe(2);
+    if (saved.draft?.schemaVersion !== 2) throw new Error("expected-v2-draft");
+    expect(saved.draft.input.commonDraft).toEqual(commonDraft);
+    expect(saved.messages).toEqual([]);
+
+    database.close();
+  });
+
+  it("V2 answer 저장 뒤 다음 질문의 common draft와 질문 snapshot을 유지한다", async () => {
+    const repository = createInterviewRepository(database);
+    const created = await repository.create(SYNTHETIC_INTERVIEW_V2_INPUT);
+    const nextQuestion = SYNTHETIC_INTERVIEW_V2_INPUT.questionSetSnapshot.questions[1];
+    const nextCommonDraft = createEmptyDraft(nextQuestion);
+
+    const saved = await repository.saveProgress(token(created), {
+      ...SYNTHETIC_PROGRESS_INPUT,
+      draft: {
+        currentQuestion: {
+          id: nextQuestion.id,
+          slot: nextQuestion.slot,
+          text: nextQuestion.text,
+          selection: "single",
+          options: nextQuestion.contracts.chip?.options ?? [],
+        },
+        input: {
+          mode: "choice",
+          text: "",
+          selectedOptionIds: [],
+          commonDraft: nextCommonDraft,
+        },
+        updatedAt: SYNTHETIC_PROGRESS_INPUT.draft.updatedAt,
+      },
+    });
+
+    expect(saved.interview.schemaVersion).toBe(2);
+    expect(saved.interview).toMatchObject({
+      questionSetSnapshot: SYNTHETIC_INTERVIEW_V2_INPUT.questionSetSnapshot,
+    });
+    expect(saved.draft?.schemaVersion).toBe(2);
+    if (saved.draft?.schemaVersion !== 2) throw new Error("expected-v2-draft");
+    expect(saved.draft.input.commonDraft).toEqual(nextCommonDraft);
+
+    database.close();
+  });
+
+  it("동일 revision의 concurrent draft persist는 하나만 commit한다", async () => {
+    const repository = createInterviewRepository(database);
+    const created = await repository.create(SYNTHETIC_INTERVIEW_V2_INPUT);
+    const firstDraft = structuredClone(
+      SYNTHETIC_INTERVIEW_V2_INPUT.draft.input.commonDraft,
+    );
+    firstDraft.values.text.value = "합성 첫 초안";
+    const secondDraft = structuredClone(firstDraft);
+    secondDraft.values.text.value = "합성 둘째 초안";
+
+    const results = await Promise.allSettled([
+      repository.persistDraft(token(created), {
+        commonDraft: firstDraft,
+        updatedAt: toUtcTimestamp("2026-07-22T01:00:10.000Z"),
+      }),
+      repository.persistDraft(token(created), {
+        commonDraft: secondDraft,
+        updatedAt: toUtcTimestamp("2026-07-22T01:00:11.000Z"),
+      }),
+    ]);
+
+    expect(results.filter(({ status }) => status === "fulfilled")).toHaveLength(1);
+    expect(results.filter(({ status }) => status === "rejected")).toHaveLength(1);
+    expect(
+      results.find(({ status }) => status === "rejected"),
+    ).toMatchObject({ reason: expect.any(RevisionConflictError) });
 
     database.close();
   });
@@ -289,6 +435,40 @@ describe("Interview repository", () => {
     await expect(repository.complete(token(completed))).rejects.toBeInstanceOf(
       ImmutableInterviewError,
     );
+
+    database.close();
+  });
+
+  it("V2 완료 기록은 생성 당시 question-set snapshot을 유지한다", async () => {
+    const repository = createInterviewRepository(database);
+    let id = 0;
+    const service = createManualInterviewService({
+      repository,
+      captureRuntimeGeneration: () => 0,
+      randomId: () => `completed-v2-${++id}`,
+    });
+    let state = await service.loadOrCreate();
+    const answers = [
+      { text: "합성 두통", selectedOptionIds: [] },
+      { text: "", selectedOptionIds: ["today"] },
+      { text: "", selectedOptionIds: ["continuous"] },
+      { text: "", selectedOptionIds: ["mild"] },
+      { text: "합성 추가 내용", selectedOptionIds: [] },
+    ];
+    for (const answer of answers) {
+      state = await service.saveAnswer(state, answer);
+    }
+    const completed = await service.complete(state);
+
+    expect(completed.interview.schemaVersion).toBe(2);
+    if (completed.interview.schemaVersion !== 2) {
+      throw new Error("expected-v2-interview");
+    }
+    expect(completed.interview.questionSetSnapshot).toEqual(
+      MANUAL_QUESTION_SET_V2,
+    );
+    expect(completed.interview.status).toBe("completed");
+    expect(completed.draft).toBeUndefined();
 
     database.close();
   });

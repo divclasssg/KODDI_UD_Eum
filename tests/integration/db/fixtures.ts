@@ -1,5 +1,11 @@
 import { toUtcTimestamp } from "@/lib/db/contracts";
+import { createEmptyDraft } from "@/features/interview/domain/interview-draft";
+import {
+  MANUAL_QUESTIONS_V1,
+  MANUAL_QUESTION_SET_V2,
+} from "@/features/interview/manual/manual-question-set";
 import type {
+  CreateInterviewInputV2,
   CreateInterviewInputV1,
   GrantConsentInputV1,
   SaveProgressInputV1,
@@ -67,6 +73,23 @@ export const SYNTHETIC_INTERVIEW_INPUT: CreateInterviewInputV1 = {
       mode: "text",
       text: "",
       selectedOptionIds: [],
+    },
+    updatedAt: SYNTHETIC_DECIDED_AT,
+  },
+};
+
+export const SYNTHETIC_INTERVIEW_V2_INPUT: CreateInterviewInputV2 = {
+  id: "interview-synthetic-v2-001",
+  mode: "manual",
+  createdAt: SYNTHETIC_DECIDED_AT,
+  questionSetSnapshot: structuredClone(MANUAL_QUESTION_SET_V2),
+  draft: {
+    currentQuestion: structuredClone(MANUAL_QUESTIONS_V1[0]),
+    input: {
+      mode: "text",
+      text: "",
+      selectedOptionIds: [],
+      commonDraft: createEmptyDraft(MANUAL_QUESTION_SET_V2.questions[0]),
     },
     updatedAt: SYNTHETIC_DECIDED_AT,
   },

@@ -3,6 +3,10 @@ import type {
   InterviewQuestionSnapshotV1,
   SummaryContentV1,
 } from "@/lib/db/contracts";
+import type {
+  QuestionSetSnapshotV2,
+  QuestionSnapshotV2,
+} from "../domain/interview-draft";
 
 export const MANUAL_QUESTION_SET_ID = "manual-intake-v1";
 
@@ -75,6 +79,86 @@ export const MANUAL_QUESTIONS_V1: readonly ManualQuestionV1[] = [
     [option("none", "추가 내용 없음")],
   ),
 ];
+
+function textContract(): QuestionSnapshotV2["contracts"]["text"] {
+  return { minLength: 1, maxLength: 1_000 };
+}
+
+function optionContract(questionItem: ManualQuestionV1) {
+  return {
+    selection: questionItem.selection,
+    options: questionItem.options.map((item) => ({ ...item })),
+    ...(questionItem.options.some(({ id }) => id === "unknown")
+      ? { unknownOptionId: "unknown" }
+      : {}),
+  };
+}
+
+function toV2Question(
+  questionItem: ManualQuestionV1,
+  index: number,
+): QuestionSnapshotV2 {
+  if (index === 0) {
+    return {
+      contractVersion: 2,
+      id: questionItem.id,
+      slot: questionItem.slot,
+      text: questionItem.text,
+      allowedModes: ["text"],
+      defaultMode: "text",
+      contracts: { text: textContract() },
+    };
+  }
+  if (index === 1 || index === 3) {
+    return {
+      contractVersion: 2,
+      id: questionItem.id,
+      slot: questionItem.slot,
+      text: questionItem.text,
+      allowedModes: ["chip", "text"],
+      defaultMode: "chip",
+      contracts: {
+        text: textContract(),
+        chip: {
+          ...optionContract(questionItem),
+          kind: index === 1 ? "duration" : "severity",
+        },
+      },
+    };
+  }
+  if (index === 2) {
+    return {
+      contractVersion: 2,
+      id: questionItem.id,
+      slot: questionItem.slot,
+      text: questionItem.text,
+      allowedModes: ["choice", "text"],
+      defaultMode: "choice",
+      contracts: {
+        text: textContract(),
+        choice: optionContract(questionItem),
+      },
+    };
+  }
+  return {
+    contractVersion: 2,
+    id: questionItem.id,
+    slot: questionItem.slot,
+    text: questionItem.text,
+    allowedModes: ["text", "choice"],
+    defaultMode: "text",
+    contracts: {
+      text: textContract(),
+      choice: optionContract(questionItem),
+    },
+  };
+}
+
+export const MANUAL_QUESTION_SET_V2: QuestionSetSnapshotV2 = {
+  contractVersion: 2,
+  id: MANUAL_QUESTION_SET_ID,
+  questions: MANUAL_QUESTIONS_V1.map(toV2Question),
+};
 
 export function getManualQuestion(index: number): ManualQuestionV1 | undefined {
   return MANUAL_QUESTIONS_V1[index];

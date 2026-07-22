@@ -1,17 +1,24 @@
 import type {
   ConsentRecordV1,
-  CreateInterviewInputV1,
+  CreateInterviewInput,
   InterviewAggregateV1,
-  InterviewDraftRecordV1,
+  InterviewDraftRecord,
+  InterviewDraftInputV1,
+  InterviewDraftInputV2,
+  InterviewDraftRecordV2,
   InterviewMessageRecordV1,
+  InterviewRecord,
   InterviewRecordV1,
+  InterviewRecordV2,
   MedicalProfileRecordV1,
+  PersistDraftInputV2,
   ProfileRecordV1,
   RevisionToken,
-  SaveFinalProgressInputV1,
-  SaveProgressInputV1,
+  SaveFinalProgressInput,
+  SaveProgressInput,
   SaveSummaryInputV1,
   SummaryRecordV1,
+  UpgradeLegacyDraftInputV2,
   UtcTimestamp,
 } from "./contracts";
 import { requestResult, transactionComplete } from "./database";
@@ -24,14 +31,22 @@ import {
 } from "./errors";
 
 export type InterviewRepository = {
-  create(input: CreateInterviewInputV1): Promise<InterviewAggregateV1>;
+  create(input: CreateInterviewInput): Promise<InterviewAggregateV1>;
   findLatestInProgress(
     mode: "ai" | "manual",
   ): Promise<InterviewAggregateV1 | undefined>;
   loadInProgress(id: string): Promise<InterviewAggregateV1 | undefined>;
+  upgradeLegacyDraft(
+    token: RevisionToken,
+    input: UpgradeLegacyDraftInputV2,
+  ): Promise<InterviewAggregateV1>;
+  persistDraft(
+    token: RevisionToken,
+    input: PersistDraftInputV2,
+  ): Promise<InterviewAggregateV1>;
   saveProgress(
     token: RevisionToken,
-    input: SaveProgressInputV1,
+    input: SaveProgressInput,
   ): Promise<InterviewAggregateV1>;
   saveSummary(
     token: RevisionToken,
@@ -39,10 +54,10 @@ export type InterviewRepository = {
   ): Promise<InterviewAggregateV1>;
   saveFinalProgress(
     token: RevisionToken,
-    input: SaveFinalProgressInputV1,
+    input: SaveFinalProgressInput,
   ): Promise<InterviewAggregateV1>;
   complete(token: RevisionToken): Promise<InterviewAggregateV1>;
-  listCompleted(): Promise<InterviewRecordV1[]>;
+  listCompleted(): Promise<InterviewRecord[]>;
 };
 
 type InterviewRepositoryOptions = {
@@ -64,9 +79,9 @@ async function requireConsent(transaction: IDBTransaction): Promise<void> {
 }
 
 function assertMutableInterview(
-  interview: InterviewRecordV1 | undefined,
+  interview: InterviewRecord | undefined,
   token: RevisionToken,
-): asserts interview is InterviewRecordV1 {
+): asserts interview is InterviewRecord {
   if (!interview || interview.id !== token.interviewId) {
     throw new InterviewNotFoundError();
   }
@@ -107,11 +122,11 @@ async function readAggregate(
   transaction: IDBTransaction,
   interviewId: string,
 ): Promise<InterviewAggregateV1 | undefined> {
-  const interview = await requestResult<InterviewRecordV1 | undefined>(
+  const interview = await requestResult<InterviewRecord | undefined>(
     transaction.objectStore("interviews").get(interviewId),
   );
   if (!interview) return undefined;
-  const draft = await requestResult<InterviewDraftRecordV1 | undefined>(
+  const draft = await requestResult<InterviewDraftRecord | undefined>(
     transaction.objectStore("interviewDrafts").get(interviewId),
   );
   const messages = await requestResult<InterviewMessageRecordV1[]>(
@@ -162,21 +177,42 @@ export function createInterviewRepository(
         "readwrite",
       );
       await requireConsent(transaction);
-      const interview: InterviewRecordV1 = {
-        id: input.id,
-        schemaVersion: 1,
-        revision: 1,
-        status: "draft",
-        mode: input.mode,
-        createdAt: input.createdAt,
-        updatedAt: input.draft.updatedAt,
-      };
-      const draft: InterviewDraftRecordV1 = {
-        interviewId: input.id,
-        schemaVersion: 1,
-        revision: 1,
-        ...input.draft,
-      };
+      let interview: InterviewRecord;
+      let draft: InterviewDraftRecord;
+      if ("questionSetSnapshot" in input) {
+        interview = {
+          id: input.id,
+          schemaVersion: 2,
+          revision: 1,
+          status: "draft",
+          mode: input.mode,
+          createdAt: input.createdAt,
+          updatedAt: input.draft.updatedAt,
+          questionSetSnapshot: structuredClone(input.questionSetSnapshot),
+        };
+        draft = {
+          interviewId: input.id,
+          schemaVersion: 2,
+          revision: 1,
+          ...input.draft,
+        };
+      } else {
+        interview = {
+          id: input.id,
+          schemaVersion: 1,
+          revision: 1,
+          status: "draft",
+          mode: input.mode,
+          createdAt: input.createdAt,
+          updatedAt: input.draft.updatedAt,
+        };
+        draft = {
+          interviewId: input.id,
+          schemaVersion: 1,
+          revision: 1,
+          ...input.draft,
+        };
+      }
       transaction.objectStore("interviews").add(interview);
       transaction.objectStore("interviewDrafts").add(draft);
       await transactionComplete(transaction);
@@ -205,6 +241,133 @@ export function createInterviewRepository(
       return latest ? loadInProgress(latest.id) : undefined;
     },
     loadInProgress,
+    async upgradeLegacyDraft(token, input) {
+      assertRuntimeGeneration(token.runtimeGeneration);
+      const transaction = database.transaction(
+        ["consents", "interviews", "interviewDrafts"],
+        "readwrite",
+      );
+      await requireConsent(transaction);
+      const interview = await requestResult<InterviewRecord | undefined>(
+        transaction.objectStore("interviews").get(token.interviewId),
+      );
+      assertMutableInterview(interview, token);
+      const draft = await requestResult<InterviewDraftRecord | undefined>(
+        transaction.objectStore("interviewDrafts").get(token.interviewId),
+      );
+      if (
+        interview.schemaVersion !== 1 ||
+        draft?.schemaVersion !== 1 ||
+        draft.revision !== interview.revision ||
+        input.commonDraft.questionId !== draft.currentQuestion.id ||
+        !input.questionSetSnapshot.questions.some(
+          ({ id }) => id === input.commonDraft.questionId,
+        )
+      ) {
+        transaction.abort();
+        throw new DatabaseCorruptionError();
+      }
+      const nextRevision = interview.revision + 1;
+      const nextInterview: InterviewRecordV2 = {
+        ...interview,
+        schemaVersion: 2,
+        revision: nextRevision,
+        updatedAt: input.updatedAt,
+        questionSetSnapshot: structuredClone(input.questionSetSnapshot),
+      };
+      const commonDraft = structuredClone(input.commonDraft);
+      const selectedOptionIds =
+        commonDraft.activeMode === "chip"
+          ? commonDraft.values.chip.selectedOptionIds
+          : commonDraft.values.choice.selectedOptionIds;
+      const nextDraft: InterviewDraftRecordV2 = {
+        ...draft,
+        schemaVersion: 2,
+        revision: nextRevision,
+        updatedAt: input.updatedAt,
+        input: {
+          mode:
+            commonDraft.activeMode === "chip"
+              ? "choice"
+              : commonDraft.activeMode,
+          text: commonDraft.values.text.value,
+          selectedOptionIds: [...selectedOptionIds],
+          commonDraft,
+        },
+      };
+      transaction.objectStore("interviews").put(nextInterview);
+      transaction.objectStore("interviewDrafts").put(nextDraft);
+      await transactionComplete(transaction);
+      const aggregate = await loadInProgress(interview.id);
+      if (!aggregate) throw new InterviewNotFoundError();
+      return aggregate;
+    },
+    async persistDraft(token, input) {
+      assertRuntimeGeneration(token.runtimeGeneration);
+      const transaction = database.transaction(
+        ["consents", "interviews", "interviewDrafts"],
+        "readwrite",
+      );
+      await requireConsent(transaction);
+      const interview = await requestResult<InterviewRecord | undefined>(
+        transaction.objectStore("interviews").get(token.interviewId),
+      );
+      assertMutableInterview(interview, token);
+      const draft = await requestResult<InterviewDraftRecord | undefined>(
+        transaction.objectStore("interviewDrafts").get(token.interviewId),
+      );
+      if (
+        interview.schemaVersion !== 2 ||
+        draft?.schemaVersion !== 2 ||
+        draft.revision !== interview.revision ||
+        input.commonDraft.questionId !== draft.currentQuestion.id ||
+        !interview.questionSetSnapshot.questions.some(
+          ({ id }) => id === input.commonDraft.questionId,
+        )
+      ) {
+        transaction.abort();
+        throw new DatabaseCorruptionError();
+      }
+      const nextRevision = interview.revision + 1;
+      const nextInterview: InterviewRecordV2 = {
+        ...interview,
+        revision: nextRevision,
+        updatedAt: input.updatedAt,
+      };
+      const commonDraft = structuredClone(input.commonDraft);
+      const selectedOptionIds =
+        commonDraft.activeMode === "chip"
+          ? commonDraft.values.chip.selectedOptionIds
+          : commonDraft.values.choice.selectedOptionIds;
+      const nextDraft: InterviewDraftRecordV2 = {
+        ...draft,
+        revision: nextRevision,
+        updatedAt: input.updatedAt,
+        input: {
+          mode:
+            commonDraft.activeMode === "chip"
+              ? "choice"
+              : commonDraft.activeMode,
+          text: commonDraft.values.text.value,
+          selectedOptionIds: [...selectedOptionIds],
+          ...(commonDraft.values.measurement.state === "known"
+            ? {
+                measurement: {
+                  value: Number(commonDraft.values.measurement.rawValue),
+                  unit: commonDraft.values.measurement.unitId,
+                },
+              }
+            : {}),
+          commonDraft,
+        },
+      };
+      transaction.objectStore("interviews").put(nextInterview);
+      transaction.objectStore("interviewDrafts").put(nextDraft);
+      await transactionComplete(transaction);
+      const aggregate = await loadInProgress(interview.id);
+      if (!aggregate) throw new InterviewNotFoundError();
+      return aggregate;
+    },
     async saveProgress(token, input) {
       assertRuntimeGeneration(token.runtimeGeneration);
       const transaction = database.transaction(
@@ -218,7 +381,7 @@ export function createInterviewRepository(
         "readwrite",
       );
       await requireConsent(transaction);
-      const interview = await requestResult<InterviewRecordV1 | undefined>(
+      const interview = await requestResult<InterviewRecord | undefined>(
         transaction.objectStore("interviews").get(token.interviewId),
       );
       assertMutableInterview(interview, token);
@@ -238,18 +401,38 @@ export function createInterviewRepository(
         throw new DatabaseCorruptionError();
       }
       const nextRevision = interview.revision + 1;
-      const nextInterview: InterviewRecordV1 = {
+      const nextInterview: InterviewRecord = {
         ...interview,
         revision: nextRevision,
         status: "draft",
         updatedAt: input.draft.updatedAt,
       };
-      const nextDraft: InterviewDraftRecordV1 = {
-        interviewId: interview.id,
-        schemaVersion: 1,
-        revision: nextRevision,
-        ...input.draft,
-      };
+      let nextDraft: InterviewDraftRecord;
+      if (interview.schemaVersion === 2) {
+        if (!("commonDraft" in input.draft.input)) {
+          transaction.abort();
+          throw new DatabaseCorruptionError();
+        }
+        const draftInput = input.draft as InterviewDraftInputV2;
+        nextDraft = {
+          interviewId: interview.id,
+          schemaVersion: 2,
+          revision: nextRevision,
+          ...draftInput,
+        };
+      } else {
+        if ("commonDraft" in input.draft.input) {
+          transaction.abort();
+          throw new DatabaseCorruptionError();
+        }
+        const draftInput = input.draft as InterviewDraftInputV1;
+        nextDraft = {
+          interviewId: interview.id,
+          schemaVersion: 1,
+          revision: nextRevision,
+          ...draftInput,
+        };
+      }
       transaction.objectStore("interviews").put(nextInterview);
       transaction.objectStore("interviewDrafts").put(nextDraft);
       transaction.objectStore("summaries").delete(interview.id);
@@ -279,11 +462,11 @@ export function createInterviewRepository(
         "readwrite",
       );
       await requireConsent(transaction);
-      const interview = await requestResult<InterviewRecordV1 | undefined>(
+      const interview = await requestResult<InterviewRecord | undefined>(
         transaction.objectStore("interviews").get(token.interviewId),
       );
       assertMutableInterview(interview, token);
-      const draft = await requestResult<InterviewDraftRecordV1 | undefined>(
+      const draft = await requestResult<InterviewDraftRecord | undefined>(
         transaction.objectStore("interviewDrafts").get(interview.id),
       );
       if (!draft || draft.revision !== interview.revision) {
@@ -311,7 +494,7 @@ export function createInterviewRepository(
         throw new DatabaseCorruptionError();
       }
       const nextRevision = interview.revision + 1;
-      const nextInterview: InterviewRecordV1 = {
+      const nextInterview: InterviewRecord = {
         ...interview,
         revision: nextRevision,
         status: "review",
@@ -348,7 +531,7 @@ export function createInterviewRepository(
       const completion = transactionComplete(transaction);
       try {
         await requireConsent(transaction);
-        const interview = await requestResult<InterviewRecordV1 | undefined>(
+        const interview = await requestResult<InterviewRecord | undefined>(
           transaction.objectStore("interviews").get(token.interviewId),
         );
         assertMutableInterview(interview, token);
@@ -383,18 +566,36 @@ export function createInterviewRepository(
           throw new DatabaseCorruptionError();
         }
         const nextRevision = interview.revision + 1;
-        const nextInterview: InterviewRecordV1 = {
+        const nextInterview: InterviewRecord = {
           ...interview,
           revision: nextRevision,
           status: "review",
           updatedAt: input.summary.updatedAt,
         };
-        const nextDraft: InterviewDraftRecordV1 = {
-          interviewId: interview.id,
-          schemaVersion: 1,
-          revision: nextRevision,
-          ...input.draft,
-        };
+        let nextDraft: InterviewDraftRecord;
+        if (interview.schemaVersion === 2) {
+          if (!("commonDraft" in input.draft.input)) {
+            throw new DatabaseCorruptionError();
+          }
+          const draftInput = input.draft as InterviewDraftInputV2;
+          nextDraft = {
+            interviewId: interview.id,
+            schemaVersion: 2,
+            revision: nextRevision,
+            ...draftInput,
+          };
+        } else {
+          if ("commonDraft" in input.draft.input) {
+            throw new DatabaseCorruptionError();
+          }
+          const draftInput = input.draft as InterviewDraftInputV1;
+          nextDraft = {
+            interviewId: interview.id,
+            schemaVersion: 1,
+            revision: nextRevision,
+            ...draftInput,
+          };
+        }
         const summary: SummaryRecordV1 = {
           interviewId: interview.id,
           schemaVersion: 1,
@@ -447,7 +648,7 @@ export function createInterviewRepository(
         "readwrite",
       );
       await requireConsent(transaction);
-      const interview = await requestResult<InterviewRecordV1 | undefined>(
+      const interview = await requestResult<InterviewRecord | undefined>(
         transaction.objectStore("interviews").get(token.interviewId),
       );
       assertMutableInterview(interview, token);
@@ -457,7 +658,7 @@ export function createInterviewRepository(
       const medicalProfile = await requestResult<
         MedicalProfileRecordV1 | undefined
       >(transaction.objectStore("medicalProfiles").get("default"));
-      const draft = await requestResult<InterviewDraftRecordV1 | undefined>(
+      const draft = await requestResult<InterviewDraftRecord | undefined>(
         transaction.objectStore("interviewDrafts").get(interview.id),
       );
       const summary = await requestResult<SummaryRecordV1 | undefined>(
@@ -477,7 +678,7 @@ export function createInterviewRepository(
       }
       const completedAt = now();
       const nextRevision = interview.revision + 1;
-      const completedInterview: InterviewRecordV1 = {
+      const completedInterview: InterviewRecord = {
         ...interview,
         revision: nextRevision,
         status: "completed",
@@ -540,7 +741,7 @@ export function createInterviewRepository(
         "readonly",
       );
       await requireConsent(transaction);
-      const completed = await requestResult<InterviewRecordV1[]>(
+      const completed = await requestResult<InterviewRecord[]>(
         transaction.objectStore("interviews").index("byStatus").getAll("completed"),
       );
       return completed.sort((left, right) =>

@@ -6,6 +6,11 @@ import {
   type RevisionToken,
 } from "@/lib/db/contracts";
 import { DatabaseCorruptionError } from "@/lib/db/errors";
+import {
+  createEmptyDraft,
+  type InputModeV2,
+  type QuestionSnapshotV2,
+} from "../domain/interview-draft";
 
 import {
   createManualSummary,
@@ -13,6 +18,7 @@ import {
   getManualQuestion,
   getManualQuestionById,
   MANUAL_QUESTIONS_V1,
+  MANUAL_QUESTION_SET_V2,
   toQuestionSnapshot,
   type ManualQuestionV1,
 } from "./manual-question-set";
@@ -38,6 +44,37 @@ export type ManualInterviewService = {
   complete(state: ManualInterviewState): Promise<InterviewAggregateV1>;
 };
 
+function manualQuestionFromSnapshot(
+  question: QuestionSnapshotV2,
+  mode: InputModeV2,
+): ManualQuestionV1 {
+  if (mode === "measurement") throw new DatabaseCorruptionError();
+  const optionContract =
+    mode === "chip" ? question.contracts.chip : question.contracts.choice;
+  return {
+    id: question.id,
+    slot: question.slot,
+    text: question.text,
+    inputMode: mode === "text" ? "text" : "choice",
+    selection: optionContract?.selection ?? "single",
+    options: optionContract?.options.map((option) => ({ ...option })) ?? [],
+  };
+}
+
+function storedQuestion(
+  aggregate: InterviewAggregateV1,
+  questionId: string,
+): QuestionSnapshotV2 {
+  if (aggregate.interview.schemaVersion !== 2) {
+    throw new DatabaseCorruptionError();
+  }
+  const question = aggregate.interview.questionSetSnapshot.questions.find(
+    ({ id }) => id === questionId,
+  );
+  if (!question) throw new DatabaseCorruptionError();
+  return question;
+}
+
 type ManualInterviewRepository = Pick<
   InterviewRepository,
   | "create"
@@ -54,7 +91,7 @@ type ManualInterviewServiceDependencies = {
   randomId?: () => string;
 };
 
-function stateFromAggregate(
+export function manualStateFromAggregate(
   aggregate: InterviewAggregateV1,
 ): ManualInterviewState {
   if (!aggregate.draft) throw new DatabaseCorruptionError();
@@ -66,7 +103,14 @@ function stateFromAggregate(
       answer: { text: "", selectedOptionIds: [] },
     };
   }
-  const question = getManualQuestionById(aggregate.draft.currentQuestion.id);
+  const question =
+    aggregate.interview.schemaVersion === 2 &&
+    aggregate.draft.schemaVersion === 2
+      ? manualQuestionFromSnapshot(
+          storedQuestion(aggregate, aggregate.draft.currentQuestion.id),
+          aggregate.draft.input.commonDraft.activeMode,
+        )
+      : getManualQuestionById(aggregate.draft.currentQuestion.id);
   if (!question) throw new DatabaseCorruptionError();
   return {
     phase: "answering",
@@ -95,7 +139,7 @@ export function createManualInterviewService({
   return {
     async loadOrCreate() {
       const existing = await repository.findLatestInProgress("manual");
-      if (existing) return stateFromAggregate(existing);
+      if (existing) return manualStateFromAggregate(existing);
       const firstQuestion = getManualQuestion(0);
       if (!firstQuestion) throw new DatabaseCorruptionError();
       const timestamp = toUtcTimestamp(now().toISOString());
@@ -103,17 +147,19 @@ export function createManualInterviewService({
         id: `manual-${randomId()}`,
         mode: "manual",
         createdAt: timestamp,
+        questionSetSnapshot: structuredClone(MANUAL_QUESTION_SET_V2),
         draft: {
           currentQuestion: toQuestionSnapshot(firstQuestion),
           input: {
             mode: firstQuestion.inputMode,
             text: "",
             selectedOptionIds: [],
+            commonDraft: createEmptyDraft(MANUAL_QUESTION_SET_V2.questions[0]),
           },
           updatedAt: timestamp,
         },
       });
-      return stateFromAggregate(aggregate);
+      return manualStateFromAggregate(aggregate);
     },
     async saveAnswer(state, answer) {
       if (state.phase !== "answering" || !state.question) {
@@ -121,9 +167,13 @@ export function createManualInterviewService({
       }
       const answerText = formatManualAnswer(state.question, answer);
       if (!answerText) throw new Error("답변이 필요합니다.");
-      const questionIndex = MANUAL_QUESTIONS_V1.findIndex(
-        (item) => item.id === state.question?.id,
-      );
+      const v2QuestionSet =
+        state.aggregate.interview.schemaVersion === 2
+          ? state.aggregate.interview.questionSetSnapshot
+          : undefined;
+      const questionIndex = (
+        v2QuestionSet?.questions ?? MANUAL_QUESTIONS_V1
+      ).findIndex((item) => item.id === state.question?.id);
       if (questionIndex < 0) throw new DatabaseCorruptionError();
       const timestamp = toUtcTimestamp(now().toISOString());
       const sequence = state.aggregate.messages.length;
@@ -145,8 +195,16 @@ export function createManualInterviewService({
           createdAt: timestamp,
         },
       ];
-      const nextQuestion = getManualQuestion(questionIndex + 1);
+      const nextQuestionV2 = v2QuestionSet?.questions[questionIndex + 1];
+      const nextQuestion = nextQuestionV2
+        ? manualQuestionFromSnapshot(nextQuestionV2, nextQuestionV2.defaultMode)
+        : v2QuestionSet
+          ? undefined
+          : getManualQuestion(questionIndex + 1);
       if (nextQuestion) {
+        const commonDraftQuestion =
+          nextQuestionV2 ?? MANUAL_QUESTION_SET_V2.questions[questionIndex + 1];
+        if (!commonDraftQuestion) throw new DatabaseCorruptionError();
         const aggregate = await repository.saveProgress(token(state.aggregate), {
           appendedMessages,
           draft: {
@@ -155,11 +213,14 @@ export function createManualInterviewService({
               mode: nextQuestion.inputMode,
               text: "",
               selectedOptionIds: [],
+              ...(state.aggregate.interview.schemaVersion === 2
+                ? { commonDraft: createEmptyDraft(commonDraftQuestion) }
+                : {}),
             },
             updatedAt: timestamp,
           },
         });
-        return stateFromAggregate(aggregate);
+        return manualStateFromAggregate(aggregate);
       }
       const newMessageRecords: InterviewMessageRecordV1[] = appendedMessages.map(
         (message) => ({
@@ -176,6 +237,13 @@ export function createManualInterviewService({
             mode: state.question.inputMode,
             text: "",
             selectedOptionIds: [],
+            ...(state.aggregate.interview.schemaVersion === 2
+              ? {
+                  commonDraft: createEmptyDraft(
+                    storedQuestion(state.aggregate, state.question.id),
+                  ),
+                }
+              : {}),
           },
           updatedAt: timestamp,
         },
@@ -189,7 +257,7 @@ export function createManualInterviewService({
           updatedAt: timestamp,
         },
       });
-      return stateFromAggregate(aggregate);
+      return manualStateFromAggregate(aggregate);
     },
     complete(state) {
       if (state.phase !== "review") throw new DatabaseCorruptionError();

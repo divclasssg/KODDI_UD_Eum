@@ -13,13 +13,14 @@ source_plan: 2026-07-16-002-feat-medical-interview-ut-ready-app-plan.md
 ## 현재 상태
 
 - 마지막 갱신: 2026-07-22
-- 구현 진행률: **2/9 units**
+- 구현 진행률: **3/9 units**
 - P0 요구사항: **0/20 검증 완료**
 - 자동 검증 gate: **7/7 통과**
-- 다음 작업: **U3 입력 전환·measurement·requestId 상태 계약**
+- 다음 작업: **U4 safety validator·evidence 검증·완료 저장 여정**
 - U2 저장 계획: [IndexedDB v1 repository 구현 계획](../superpowers/plans/2026-07-22-u2-indexeddb-v1-repository-implementation-plan.md)
 - U2 화면 연결 계획: [온보딩·홈 구현 계획](../superpowers/plans/2026-07-22-u2-onboarding-home-integration-plan.md), [실제 제품형 v1 개정 계획](../superpowers/plans/2026-07-22-u2-v1-actual-onboarding-revision-plan.md)
 - U2 완료 계획: [수동 문진·프로필 수정·reset 구현 계획](../superpowers/plans/2026-07-22-u2-remaining-manual-profile-reset-implementation-plan.md)
+- U3 설계·계획: [문진 상태·입력 계약 설계](../superpowers/specs/2026-07-22-u3-interview-state-input-contracts-design.md), [구현 계획](../superpowers/plans/2026-07-22-u3-interview-state-input-contracts-implementation-plan.md)
 - 세부 구현 계획: [대표 문진 화면 구현 계획](../superpowers/plans/2026-07-19-interview-screen-implementation-plan.md)
 - Modal 계획: [외부 데모 구현 계획](../superpowers/plans/2026-07-20-modal-medgemma-external-demo-implementation-plan.md)
 - 음성 계획: [모의 음성 입력 구현 계획](../superpowers/plans/2026-07-20-simulated-voice-input-implementation-plan.md)

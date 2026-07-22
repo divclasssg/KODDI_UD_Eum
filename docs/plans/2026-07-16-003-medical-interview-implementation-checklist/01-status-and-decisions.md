@@ -8,14 +8,14 @@
 ## 현재 상태
 
 - 마지막 갱신: 2026-07-22
-- 앱 구현 진행률: **2/9 units 완료**
+- 앱 구현 진행률: **3/9 units 완료**
 - P0 요구사항: **0/20 검증 완료**
 - 자동 검증 gate: **7/7 통과**
-- 현재 단계: **U2 완료 — 실제 제품형 onboarding·수동 문진·profile 수정·reset 연결 완료**
-- 다음 작업: **U3 입력 전환·measurement·requestId 상태 계약**
+- 현재 단계: **U3 완료 — pure machine·공통 draft·입력 전환·stale 폐기 연결 완료**
+- 다음 작업: **U4 safety validator·evidence 검증·완료 저장 여정**
 - 현재 차단 요소: **의료 콘텐츠·clinician view·후속 UI 계약 미확정**
 
-현재 앱 저장소에는 Next.js App Router 기반 `/interview/new`의 개발 fixture 경로와 Persona 없는 실제 `/interview/manual` 경로가 분리돼 있다. 공개 흐름은 Figma의 스플래시, 소개, 기본 프로필, 하단 2·3 의료정보를 하나의 `/onboarding`으로 연결하고, 만 14세 미만과 필수 동의 거부를 database 생성 전에 차단한다. AI 거부 사용자는 외부 요청 없이 최대 다섯 개의 `manual-intake-v1` 질문을 저장·복원·완료할 수 있다. 프로필 수정은 과거 완료 snapshot을 바꾸지 않으며 reset은 runtime 작업을 취소하고 8개 store를 한 transaction으로 지운다. 음성·사진 진입점은 공개 UI에 존재하지만 실제 권한·파일·외부 처리는 실행하지 않는다.
+현재 앱 저장소에는 Next.js App Router 기반 `/interview/new`의 개발 fixture 경로와 Persona 없는 실제 `/interview/manual` 경로가 분리돼 있다. 공개 흐름은 Figma의 스플래시, 소개, 기본 프로필, 하단 2·3 의료정보를 하나의 `/onboarding`으로 연결하고, 만 14세 미만과 필수 동의 거부를 database 생성 전에 차단한다. AI 거부 사용자는 외부 요청 없이 최대 다섯 개의 `manual-intake-v1` 질문을 저장·복원·완료할 수 있다. 수동 문진은 UI→application service→pure machine→repository port를 따르고, versioned common draft가 text·choice·chip 전환 값을 미제출 상태에서도 IndexedDB version 1에 보존한다. request identity와 durable revision, reset generation은 분리돼 늦은 성공·실패와 reset 뒤 쓰기를 폐기한다. 프로필 수정은 과거 완료 snapshot을 바꾸지 않으며 reset은 runtime 작업을 취소하고 8개 store를 한 transaction으로 지운다. 음성·사진 진입점은 공개 UI에 존재하지만 실제 권한·파일·외부 처리는 실행하지 않는다.
 
 ## 상태 표시와 갱신 규칙
 

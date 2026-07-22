@@ -3,155 +3,172 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
+import {
+  createInterviewApplicationService,
+  type InterviewApplicationService,
+} from "@/features/interview/application/interview-application-service";
+import { validateDraft } from "@/features/interview/domain/interview-draft";
+import type { InterviewDomainState } from "@/features/interview/domain/interview-machine";
+import { QuestionInputAdapter } from "@/features/inputs/question-input-adapter";
 import { openMedicalInterviewDatabase } from "@/lib/db/database";
-import { createInterviewRepository, type InterviewRepository } from "@/lib/db/interview-repository";
+import {
+  createInterviewRepository,
+  type InterviewRepository,
+} from "@/lib/db/interview-repository";
 import { browserRuntimeOperations } from "@/lib/runtime/runtime-operation-coordinator";
 
-import {
-  createManualInterviewService,
-  type ManualAnswerDraft,
-  type ManualInterviewService,
-  type ManualInterviewState,
-} from "./manual-interview-service";
+import { createManualInterviewApplicationRepositoryPort } from "./manual-interview-application-adapter";
+import { createManualInterviewService } from "./manual-interview-service";
 import styles from "./manual-interview-screen.module.scss";
 
 type ManualInterviewScreenProps = {
-  service: ManualInterviewService;
-  navigate: (path: string) => void;
+  service: InterviewApplicationService;
 };
 
-export function ManualInterviewScreen({ service, navigate }: ManualInterviewScreenProps) {
-  const [state, setState] = useState<ManualInterviewState>();
-  const [loadingError, setLoadingError] = useState(false);
-  const [saveError, setSaveError] = useState(false);
-  const [pending, setPending] = useState(false);
-  const [completed, setCompleted] = useState(false);
-  const [attempt, setAttempt] = useState(0);
+function blocksUnload(state: InterviewDomainState): boolean {
+  return (
+    state.phase === "submitting" ||
+    state.phase === "completing" ||
+    (state.phase === "answering" && state.draftSync !== "clean")
+  );
+}
+
+export function ManualInterviewScreen({ service }: ManualInterviewScreenProps) {
+  const [state, setState] = useState(service.getState);
 
   useEffect(() => {
-    let active = true;
-    service.loadOrCreate()
-      .then((nextState) => {
-        if (active) setState(nextState);
-      })
-      .catch(() => {
-        if (active) setLoadingError(true);
-      });
+    const unsubscribe = service.subscribe(setState);
+    service.start();
     return () => {
-      active = false;
+      unsubscribe();
+      service.dispose();
     };
-  }, [attempt, service]);
+  }, [service]);
 
-  const updateAnswer = (value: Partial<ManualAnswerDraft>) => {
-    setState((current) => current ? {
-      ...current,
-      answer: { ...current.answer, ...value },
-    } : current);
-    setSaveError(false);
-  };
+  useEffect(() => {
+    if (!blocksUnload(state)) return;
+    const preventUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", preventUnload);
+    return () => window.removeEventListener("beforeunload", preventUnload);
+  }, [state]);
 
-  const submit = async () => {
-    if (!state || pending) return;
-    setPending(true);
-    setSaveError(false);
-    try {
-      setState(await service.saveAnswer(state, state.answer));
-    } catch {
-      setSaveError(true);
-    } finally {
-      setPending(false);
-    }
-  };
-
-  const complete = async () => {
-    if (!state || pending) return;
-    setPending(true);
-    setSaveError(false);
-    try {
-      await service.complete(state);
-      setCompleted(true);
-    } catch {
-      setSaveError(true);
-    } finally {
-      setPending(false);
-    }
-  };
-
-  if (completed) {
+  if (state.phase === "completed") {
     return (
       <main className={styles.page}>
         <section className={styles.card}>
           <p role="status">문진을 저장했어요.</p>
           <h1>의료진에게 보여줄 내용을 준비했어요</h1>
-          <button className={styles.primary} type="button" onClick={() => navigate("/home")}>홈으로</button>
+          <button
+            className={styles.primary}
+            onClick={() => service.navigate("/home")}
+            type="button"
+          >
+            홈으로
+          </button>
         </section>
       </main>
     );
   }
-  if (loadingError) {
+  if (state.phase === "load-error") {
     return (
       <main className={styles.page}>
         <section className={styles.card}>
           <p role="alert">진행 중인 문진을 불러오지 못했어요.</p>
-          <button type="button" onClick={() => { setLoadingError(false); setAttempt((value) => value + 1); }}>다시 불러오기</button>
-          <button type="button" onClick={() => navigate("/home")}>홈으로</button>
+          <button onClick={() => window.location.reload()} type="button">
+            다시 불러오기
+          </button>
+          <button onClick={() => service.navigate("/home")} type="button">
+            홈으로
+          </button>
         </section>
       </main>
     );
   }
-  if (!state) {
-    return <main className={styles.page}><p role="status">문진을 불러오고 있어요.</p></main>;
+  if (state.phase === "loading" || state.phase === "disposed") {
+    return (
+      <main className={styles.page}>
+        <p role="status">문진을 불러오고 있어요.</p>
+      </main>
+    );
   }
-
-  if (state.phase === "review") {
+  if (state.phase === "review" || state.phase === "completing") {
+    const pending = state.phase === "completing";
     return (
       <main className={styles.page}>
         <section className={styles.card} aria-busy={pending}>
           <p className={styles.eyebrow}>확인</p>
           <h1>작성한 내용을 확인해 주세요</h1>
           <ul className={styles.summary}>
-            {state.aggregate.summary?.content.subjective.map((item) => <li key={item.id}>{item.text}</li>)}
+            {state.summary.items.map((item, index) => (
+              <li key={`${index}:${item}`}>{item}</li>
+            ))}
           </ul>
           <p>이 내용은 입력한 답변만 정리했으며 진단이나 치료 권고가 아닙니다.</p>
-          {saveError && <p role="alert">문진을 완료하지 못했어요. 저장된 답변은 그대로 있어요.</p>}
-          <button className={styles.primary} type="button" disabled={pending} onClick={() => void complete()}>{pending ? "저장하고 있어요" : "문진 저장 완료"}</button>
-          <button type="button" disabled={pending} onClick={() => navigate("/home")}>나중에 계속하기</button>
+          {state.errorCode && (
+            <p role="alert">
+              문진을 완료하지 못했어요. 저장된 답변은 그대로 있어요.
+            </p>
+          )}
+          <button
+            className={styles.primary}
+            disabled={pending}
+            onClick={() => service.complete()}
+            type="button"
+          >
+            {pending ? "저장하고 있어요" : "문진 저장 완료"}
+          </button>
+          <button
+            disabled={pending}
+            onClick={() => service.navigate("/home")}
+            type="button"
+          >
+            나중에 계속하기
+          </button>
         </section>
       </main>
     );
   }
 
-  const question = state.question;
-  if (!question) return null;
-  const hasAnswer = state.answer.text.trim() !== "" || state.answer.selectedOptionIds.length > 0;
+  const pending = state.phase === "submitting";
+  const validation = validateDraft(state.question, state.draft);
+  const submitQueued = state.phase === "answering" && state.submitQueued;
+  const saving = state.phase === "answering" && state.draftSync === "saving";
+  const hasError = state.phase === "answering" && Boolean(state.errorCode);
   return (
     <main className={styles.page}>
-      <section className={styles.card} aria-busy={pending}>
+      <section className={styles.card} aria-busy={pending || saving}>
         <p className={styles.eyebrow}>수동 문진</p>
-        <h1>{question.text}</h1>
-        {question.options.length > 0 && (
-          <fieldset>
-            <legend>답변 선택</legend>
-            <div className={styles.options}>
-              {question.options.map((option) => (
-                <label key={option.id}>
-                  <input type="radio" name="manual-answer" checked={state.answer.selectedOptionIds.includes(option.id)} onChange={() => updateAnswer({ selectedOptionIds: [option.id], ...(option.id === "none" ? { text: "" } : {}) })} />
-                  {option.label}
-                </label>
-              ))}
-            </div>
-          </fieldset>
+        <h1>{state.question.text}</h1>
+        <QuestionInputAdapter
+          disabled={pending}
+          draft={state.draft}
+          onDraftChange={(draft) => service.editDraft(draft)}
+          question={state.question}
+        />
+        {hasError && (
+          <p role="alert">저장하지 못했어요. 입력한 답변은 그대로 있어요.</p>
         )}
-        {question.inputMode === "text" && (
-          <div className={styles.field}>
-            <label htmlFor="manual-answer">답변</label>
-            <textarea id="manual-answer" value={state.answer.text} disabled={state.answer.selectedOptionIds.includes("none")} onChange={(event) => updateAnswer({ text: event.target.value, selectedOptionIds: [] })} />
-          </div>
+        {(saving || pending) && (
+          <p role="status">답변을 저장하고 있어요.</p>
         )}
-        {saveError && <p role="alert">저장하지 못했어요. 입력한 답변은 그대로 있어요.</p>}
-        {pending && <p role="status">답변을 저장하고 있어요.</p>}
-        <button className={styles.primary} type="button" disabled={!hasAnswer || pending} onClick={() => void submit()}>답변 저장</button>
-        <button type="button" disabled={pending} onClick={() => navigate("/home")}>나중에 계속하기</button>
+        <button
+          className={styles.primary}
+          disabled={validation.status !== "valid" || pending || submitQueued}
+          onClick={() => service.submit()}
+          type="button"
+        >
+          답변 저장
+        </button>
+        <button
+          disabled={pending}
+          onClick={() => service.navigate("/home")}
+          type="button"
+        >
+          나중에 계속하기
+        </button>
       </section>
     </main>
   );
@@ -162,30 +179,57 @@ async function withRepository<Value>(
 ) {
   const database = await openMedicalInterviewDatabase();
   try {
-    return await operation(createInterviewRepository(database, {
-      assertRuntimeGeneration: browserRuntimeOperations.assertCurrent,
-    }));
+    return await operation(
+      createInterviewRepository(database, {
+        assertRuntimeGeneration: browserRuntimeOperations.assertCurrent,
+      }),
+    );
   } finally {
     database.close();
   }
 }
 
-function createBrowserManualInterviewService() {
-  return createManualInterviewService({
+function createBrowserManualInterviewApplicationService(
+  navigate: (path: "/home") => void,
+) {
+  const repository = {
+    create: (input: Parameters<InterviewRepository["create"]>[0]) =>
+      withRepository((current) => current.create(input)),
+    findLatestInProgress: (
+      mode: Parameters<InterviewRepository["findLatestInProgress"]>[0],
+    ) => withRepository((current) => current.findLatestInProgress(mode)),
+    upgradeLegacyDraft: (
+      ...args: Parameters<InterviewRepository["upgradeLegacyDraft"]>
+    ) => withRepository((current) => current.upgradeLegacyDraft(...args)),
+    persistDraft: (...args: Parameters<InterviewRepository["persistDraft"]>) =>
+      withRepository((current) => current.persistDraft(...args)),
+    saveProgress: (...args: Parameters<InterviewRepository["saveProgress"]>) =>
+      withRepository((current) => current.saveProgress(...args)),
+    saveFinalProgress: (
+      ...args: Parameters<InterviewRepository["saveFinalProgress"]>
+    ) => withRepository((current) => current.saveFinalProgress(...args)),
+    complete: (...args: Parameters<InterviewRepository["complete"]>) =>
+      withRepository((current) => current.complete(...args)),
+  };
+  const legacyService = createManualInterviewService({
     captureRuntimeGeneration: browserRuntimeOperations.capture,
-    repository: {
-      create: (input) => withRepository((repository) => repository.create(input)),
-      findLatestInProgress: (mode) => withRepository((repository) => repository.findLatestInProgress(mode)),
-      saveProgress: (token, input) => withRepository((repository) => repository.saveProgress(token, input)),
-      saveFinalProgress: (token, input) => withRepository((repository) => repository.saveFinalProgress(token, input)),
-      complete: (token) => withRepository((repository) => repository.complete(token)),
-    },
+    repository,
+  });
+  return createInterviewApplicationService({
+    repository: createManualInterviewApplicationRepositoryPort({
+      legacyService,
+      repository,
+    }),
+    navigate,
+    captureRuntimeGeneration: browserRuntimeOperations.capture,
   });
 }
 
 export function ManualInterviewScreenWithRouter() {
   const router = useRouter();
-  const navigate = useCallback((path: string) => router.push(path), [router]);
-  const [service] = useState(createBrowserManualInterviewService);
-  return <ManualInterviewScreen service={service} navigate={navigate} />;
+  const navigate = useCallback((path: "/home") => router.push(path), [router]);
+  const [service] = useState(() =>
+    createBrowserManualInterviewApplicationService(navigate),
+  );
+  return <ManualInterviewScreen service={service} />;
 }

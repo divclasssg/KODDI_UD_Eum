@@ -1,4 +1,8 @@
 import { InvalidUtcTimestampError } from "./errors";
+import type {
+  CommonDraftV2,
+  QuestionSetSnapshotV2,
+} from "@/features/interview/domain/interview-draft";
 
 export type UtcTimestamp = string & {
   readonly __utcTimestamp: unique symbol;
@@ -135,6 +139,13 @@ export type InterviewRecordV1 = {
   profileSnapshot?: CompletedProfileSnapshotV1;
 };
 
+export type InterviewRecordV2 = Omit<InterviewRecordV1, "schemaVersion"> & {
+  schemaVersion: 2;
+  questionSetSnapshot: QuestionSetSnapshotV2;
+};
+
+export type InterviewRecord = InterviewRecordV1 | InterviewRecordV2;
+
 export type InterviewDraftInputV1 = {
   currentQuestion: InterviewQuestionSnapshotV1;
   input: {
@@ -151,6 +162,22 @@ export type InterviewDraftRecordV1 = InterviewDraftInputV1 & {
   schemaVersion: 1;
   revision: number;
 };
+
+export type InterviewDraftInputV2 = Omit<InterviewDraftInputV1, "input"> & {
+  input: InterviewDraftInputV1["input"] & {
+    commonDraft: CommonDraftV2;
+  };
+};
+
+export type InterviewDraftRecordV2 = InterviewDraftInputV2 & {
+  interviewId: string;
+  schemaVersion: 2;
+  revision: number;
+};
+
+export type InterviewDraftRecord =
+  | InterviewDraftRecordV1
+  | InterviewDraftRecordV2;
 
 export type InterviewMessageInputV1 = {
   id: string;
@@ -191,8 +218,8 @@ export type SummaryRecordV1 = {
 };
 
 export type InterviewAggregateV1 = {
-  interview: InterviewRecordV1;
-  draft?: InterviewDraftRecordV1;
+  interview: InterviewRecord;
+  draft?: InterviewDraftRecord;
   messages: InterviewMessageRecordV1[];
   summary?: SummaryRecordV1;
 };
@@ -204,6 +231,15 @@ export type CreateInterviewInputV1 = {
   draft: InterviewDraftInputV1;
 };
 
+export type CreateInterviewInputV2 = Omit<CreateInterviewInputV1, "draft"> & {
+  questionSetSnapshot: QuestionSetSnapshotV2;
+  draft: InterviewDraftInputV2;
+};
+
+export type CreateInterviewInput =
+  | CreateInterviewInputV1
+  | CreateInterviewInputV2;
+
 export type RevisionToken = {
   interviewId: string;
   expectedRevision: number;
@@ -213,6 +249,21 @@ export type RevisionToken = {
 export type SaveProgressInputV1 = {
   draft: InterviewDraftInputV1;
   appendedMessages: InterviewMessageInputV1[];
+};
+
+export type SaveProgressInputV2 = Omit<SaveProgressInputV1, "draft"> & {
+  draft: InterviewDraftInputV2;
+};
+
+export type SaveProgressInput = SaveProgressInputV1 | SaveProgressInputV2;
+
+export type PersistDraftInputV2 = {
+  commonDraft: CommonDraftV2;
+  updatedAt: UtcTimestamp;
+};
+
+export type UpgradeLegacyDraftInputV2 = PersistDraftInputV2 & {
+  questionSetSnapshot: QuestionSetSnapshotV2;
 };
 
 export type SaveSummaryInputV1 = {
@@ -227,3 +278,14 @@ export type SaveFinalProgressInputV1 = {
   appendedMessages: InterviewMessageInputV1[];
   summary: SaveSummaryInputV1;
 };
+
+export type SaveFinalProgressInputV2 = Omit<
+  SaveFinalProgressInputV1,
+  "draft"
+> & {
+  draft: InterviewDraftInputV2;
+};
+
+export type SaveFinalProgressInput =
+  | SaveFinalProgressInputV1
+  | SaveFinalProgressInputV2;
