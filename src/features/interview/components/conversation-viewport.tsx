@@ -52,6 +52,7 @@ export function ConversationViewport({
       {history.length >= 5 ? (
         <button
           className={styles["jump-to-latest"]}
+          data-action-emphasis="utility"
           onClick={jumpToLatest}
           type="button"
         >

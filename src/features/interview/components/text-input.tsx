@@ -32,6 +32,7 @@ export function TextInput({
       <button
         aria-label="음성으로 답하기"
         aria-pressed={draft.inputMode === "voice"}
+        data-action-emphasis="utility"
         disabled={disabled}
         onClick={onVoiceSelect}
         type="button"

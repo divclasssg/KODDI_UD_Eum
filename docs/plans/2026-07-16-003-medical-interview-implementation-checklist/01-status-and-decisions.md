@@ -7,15 +7,15 @@
 
 ## 현재 상태
 
-- 마지막 갱신: 2026-07-21
-- 앱 구현 진행률: **0/9 units 완료**
+- 마지막 갱신: 2026-07-22
+- 앱 구현 진행률: **1/9 units 완료**
 - P0 요구사항: **0/20 검증 완료**
-- 자동 검증 gate: **6/7 통과**
-- 현재 단계: **U1 진행 중 — Modal Task 1~5 구현·actual 검증·main 병합 완료**
-- 다음 작업: **단일 핵심 행동과 브라우저→Node Route 인증 gate를 닫은 뒤 U2 저장 계약 확정**
+- 자동 검증 gate: **7/7 통과**
+- 현재 단계: **U1 완료 — 단일 핵심 행동·브라우저 실제 경로·운영 복구 gate 통과**
+- 다음 작업: **U2 IndexedDB v1 schema와 repository 계약 확정**
 - 현재 차단 요소: **IndexedDB·profile·clinician view 등 후속 계약 미확정**
 
-현재 앱 저장소에는 Next.js App Router 기반 `/interview/new`와 고정 iPhone 프레임, 9개 결정론적 상태 fixture가 있다. 프로젝트 설정·SCSS token·Pretendard 자체 호스팅, 문진 비동기·오류·안전 전환, 393×852 시각·키보드 E2E와 실제 브라우저 200% 확대 검증은 완료됐다. 공개 합성 Persona demo의 HTTP 화면 연결, 역할극 확인, stale 요청 폐기, 질문·요약 fallback도 검증했다. Modal `main`에서 세 합성 Persona 질문 9회·요약 3회 actual gate와 별도 CPU-only quota gate까지 통과했고 관련 변경은 `main`과 `origin/main`에 병합됐다. 다만 단일 핵심 행동과 브라우저를 통한 Node Route 인증 gate, 전체 앱의 저장·기록·clinician view가 남아 있어 U1 unit은 아직 완료 처리하지 않는다.
+현재 앱 저장소에는 Next.js App Router 기반 `/interview/new`와 고정 iPhone 프레임, 9개 결정론적 상태 fixture가 있다. 프로젝트 설정·SCSS token·Pretendard 자체 호스팅, 문진 비동기·오류·안전 전환, 393×852 시각·키보드 E2E와 실제 브라우저 200% 확대 검증은 완료됐다. 공개 합성 Persona demo의 HTTP 화면 연결, 역할극 확인, stale 요청 폐기, 질문·요약 fallback도 검증했다. Modal `main`에서 세 합성 Persona 질문 9회·요약 3회 actual gate와 별도 CPU-only quota gate까지 통과했고 관련 변경은 `main`과 `origin/main`에 병합됐다. 상태별 primary CTA 최대 1개와 브라우저 요청의 Node guard·Modal proxy 인증 통과도 확인했다. 첫 browser actual은 75초 경계에서 HTTP 502였지만 운영 기본값과 direct cold 성능 기준은 유지하고 통합 gate만 기존 provider 상한 85초를 쓰도록 TDD 보정했다. 재검증은 58.7초에 HTTP 200과 새 질문 표시를 통과했고, kill switch `1` 재배포와 인증 503 복구까지 확인해 U1을 완료했다.
 
 ## 상태 표시와 갱신 규칙
 

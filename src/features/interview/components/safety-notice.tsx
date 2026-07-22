@@ -42,18 +42,38 @@ export function SafetyNotice({
         <div className={styles["notice-actions"]}>
           {urgent ? (
             <>
-              <button onClick={onCall119} type="button">
+              <button
+                className={styles["notice-primary-action"]}
+                data-action-emphasis="primary"
+                onClick={onCall119}
+                type="button"
+              >
                 119에 전화하기
               </button>
-              <button onClick={onShowToBystander} type="button">
+              <button
+                className={styles["notice-secondary-action"]}
+                data-action-emphasis="secondary"
+                onClick={onShowToBystander}
+                type="button"
+              >
                 주변 사람에게 보여주기
               </button>
-              <button onClick={onViewSummary} type="button">
+              <button
+                className={styles["notice-secondary-action"]}
+                data-action-emphasis="secondary"
+                onClick={onViewSummary}
+                type="button"
+              >
                 문진 내용 요약 보기
               </button>
             </>
           ) : (
-            <button onClick={onContinue} type="button">
+            <button
+              className={styles["notice-primary-action"]}
+              data-action-emphasis="primary"
+              onClick={onContinue}
+              type="button"
+            >
               문진 계속하기
             </button>
           )}

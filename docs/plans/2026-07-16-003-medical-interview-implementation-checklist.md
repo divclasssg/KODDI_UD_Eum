@@ -12,11 +12,11 @@ source_plan: 2026-07-16-002-feat-medical-interview-ut-ready-app-plan.md
 
 ## 현재 상태
 
-- 마지막 갱신: 2026-07-21
-- 구현 진행률: **0/9 units**
+- 마지막 갱신: 2026-07-22
+- 구현 진행률: **1/9 units**
 - P0 요구사항: **0/20 검증 완료**
-- 자동 검증 gate: **6/7 통과**
-- 다음 작업: **U1의 단일 핵심 행동·Node Route 인증 gate를 닫고 U2 저장 계약 확정**
+- 자동 검증 gate: **7/7 통과**
+- 다음 작업: **U2 IndexedDB v1 저장 계약 확정과 repository TDD 구현**
 - 세부 구현 계획: [대표 문진 화면 구현 계획](../superpowers/plans/2026-07-19-interview-screen-implementation-plan.md)
 - Modal 계획: [외부 데모 구현 계획](../superpowers/plans/2026-07-20-modal-medgemma-external-demo-implementation-plan.md)
 - 음성 계획: [모의 음성 입력 구현 계획](../superpowers/plans/2026-07-20-simulated-voice-input-implementation-plan.md)

@@ -226,6 +226,17 @@
   outline-offset: var(--space-2);
 }
 
+.notice-actions .notice-primary-action {
+  color: var(--color-text-on-primary);
+  background: var(--color-bg-brand-primary);
+  border-color: var(--color-border-brand);
+}
+
+.notice-actions .notice-secondary-action {
+  color: inherit;
+  background: var(--color-bg-primary);
+}
+
 .choice-input {
   display: flex;
   min-width: 0;

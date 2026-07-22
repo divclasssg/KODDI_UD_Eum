@@ -43,6 +43,10 @@
 | 2026-07-21 | Modal Task 5 전체 actual·quota | gate 통과·운영 잠금 | 세 Persona 질문 9회·요약 3회 통과, CPU-only quota 4/4, adapter/fallback 단위 36건, 최종 인증 503 | 최종 자동 검증 |
 | 2026-07-21 | Modal Task 5 최종 검증 | 완료 | diff·lint·typecheck·단위 86건·Python 36건·E2E 14건·build 통과, main/test container 0 | U1 잔여 범위 결정 |
 | 2026-07-21 | Modal Task 1~5 저장소 통합 | 완료 | `ac5be27`~`5940fd2`, feature push, `main` fast-forward, `origin/main` divergence `0 0`, 병합 후 전체 자동 검증 통과 | U1 잔여 gate·U2 저장 계약 |
+| 2026-07-22 | U1 primary CTA 계약 | 구현·로컬 검증 완료 | 행동 가능 fixture primary 1개, 대기·완료 0개, primary 단위 13건·관련 단위 34건 통과 | 브라우저 actual gate |
+| 2026-07-22 | U1 브라우저→Modal actual | 인증 통과·응답 gate 실패·운영 복구 | mock HTTP 200, actual은 T4 17토큰 생성 뒤 Route 502, 최종 kill switch `1`·인증 503·container 0 | 비용 없는 원인 분석 뒤 승인된 1회 재검증 |
+| 2026-07-22 | U1 browser actual 왕복 timeout | 로컬 TDD 보정 완료 | 운영·direct cold 75초 유지, browser harness만 provider 상한 85초 사용, config 계약 RED→GREEN | 승인된 합성 질문 1회 재검증 |
+| 2026-07-22 | U1 browser actual 재검증 | 완료·운영 잠금 | 합성 질문 1회 HTTP 200·새 질문 58.7초, 즉시 kill switch `1` 재배포·인증 503·container 0 | U2 IndexedDB 계약 |
 
 ## 차단 기록
 
@@ -55,6 +59,7 @@
 | 2026-07-21 | 로컬 proxy token 환경 변수 미설정 | 인증 actual·quota gate 대기 | gitignored `.env.local`에 사용자가 직접 server-only 값 설정 | 해소 |
 | 2026-07-21 | T4 float16 actual 출력이 PAD로 붕괴 | 세 Persona actual gate 차단 | 기본·eager 첫 forward의 logits가 모두 NaN으로 확인돼 직접 원인을 float16 forward 수치 붕괴로 좁힘, kill switch `1` 복구 | 최초 NaN layer 또는 T4 호환 추론 방식 결정 필요 |
 | 2026-07-21 | T4 8비트가 actual 성능·JSON gate 실패 | 세 Persona actual gate 차단 | NaN은 해소했지만 cold timeout, warm 24.7초, 96토큰 JSON 미완성 확인 | 비용 대비 4비트·출력 제약 최적화 여부 결정 필요 |
+| 2026-07-22 | cold 생성 완료 뒤 Modal 웹 응답 미반환 | U1 브라우저 actual HTTP 200 gate 차단 | browser harness를 기존 85초 상한으로 보정한 뒤 합성 질문 1회가 58.7초 HTTP 200 통과 | 해소 |
 
 ## 범위 제외 기록
 

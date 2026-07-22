@@ -17,6 +17,7 @@ type ResponseComposerProps = {
   onToggleOption: (optionId: string) => void;
   onVoiceSelect: () => void;
   question: InterviewQuestion;
+  submitEmphasis: "primary" | "secondary";
   submitDisabled: boolean;
 };
 
@@ -29,6 +30,7 @@ export function ResponseComposer({
   onToggleOption,
   onVoiceSelect,
   question,
+  submitEmphasis,
   submitDisabled,
 }: ResponseComposerProps) {
   const hasAnswer =
@@ -65,6 +67,7 @@ export function ResponseComposer({
       <button
         aria-describedby={helperId}
         className={styles["submit-button"]}
+        data-action-emphasis={submitEmphasis}
         disabled={submitDisabled || !hasAnswer}
         type="submit"
       >

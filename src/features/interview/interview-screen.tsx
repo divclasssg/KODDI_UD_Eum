@@ -151,6 +151,9 @@ export function InterviewScreen({
               setDraft((current) => ({ ...current, inputMode: "voice" }));
             }}
             question={question}
+            submitEmphasis={
+              initialModel.state === "answering" ? "primary" : "secondary"
+            }
             submitDisabled={submitDisabled}
           />
         </>
