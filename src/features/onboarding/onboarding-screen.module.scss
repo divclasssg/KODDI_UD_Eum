@@ -1,0 +1,224 @@
+.page {
+  min-height: 100svh;
+  padding: 24px 16px;
+  display: grid;
+  place-items: center;
+  background: var(--color-bg-secondary);
+}
+
+.card {
+  width: min(100%, 393px);
+  padding: 32px 24px;
+  display: grid;
+  gap: 20px;
+  color: var(--color-text-primary);
+  background: var(--color-bg-primary);
+  border-radius: var(--radius-2xl);
+
+  h1,
+  p {
+    margin: 0;
+  }
+
+  h1 {
+    font-size: 28px;
+    line-height: 1.3;
+  }
+
+  p,
+  label,
+  legend,
+  input,
+  textarea,
+  button {
+    font-size: 18px;
+    line-height: 1.5;
+  }
+
+  button,
+  input,
+  textarea {
+    border-radius: var(--radius-md);
+  }
+
+  button:focus-visible,
+  input:focus-visible,
+  textarea:focus-visible {
+    outline: 3px solid var(--color-border-brand);
+    outline-offset: 3px;
+  }
+}
+
+.eyebrow {
+  color: var(--color-text-brand);
+  font-weight: 700;
+}
+
+.brand {
+  color: var(--color-text-brand);
+  font-size: 24px !important;
+  font-weight: 800;
+}
+
+.introPosition {
+  color: var(--color-text-brand);
+  letter-spacing: 8px;
+}
+
+.primary,
+.secondary,
+.back {
+  min-height: var(--size-touch-target-min);
+  padding: 12px 18px;
+  border: 1px solid transparent;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.primary {
+  color: var(--color-text-on-primary);
+  background: var(--color-bg-brand-primary);
+}
+
+.secondary {
+  color: var(--color-text-primary);
+  background: var(--color-bg-secondary);
+  border-color: var(--color-border-default);
+}
+
+.back {
+  color: var(--color-text-secondary);
+  background: transparent;
+}
+
+.fields,
+.field {
+  display: grid;
+  gap: 12px;
+}
+
+.categoryGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.category {
+  min-height: 72px;
+  padding: 12px;
+  color: var(--color-text-primary);
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border-default);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.mediaActions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.summary {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+
+  div {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+  }
+
+  dt {
+    color: var(--color-text-secondary);
+  }
+
+  dd {
+    margin: 0;
+    font-weight: 700;
+  }
+}
+
+.dialogBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  padding: 24px;
+  display: grid;
+  place-items: center;
+  background: rgb(0 0 0 / 45%);
+}
+
+.dialog {
+  width: min(100%, 360px);
+  padding: 24px;
+  display: grid;
+  gap: 16px;
+  color: var(--color-text-primary);
+  background: var(--color-bg-primary);
+  border-radius: var(--radius-xl);
+
+  h2,
+  p {
+    margin: 0;
+  }
+}
+
+.fields {
+  gap: 24px;
+}
+
+.field input,
+.field textarea {
+  width: 100%;
+  min-height: 48px;
+  padding: 10px 12px;
+  color: var(--color-text-primary);
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border-default);
+}
+
+.field textarea {
+  min-height: 88px;
+  resize: vertical;
+}
+
+.field [role="alert"],
+.card > [role="alert"] {
+  color: var(--color-text-error);
+  font-weight: 700;
+}
+
+.options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.options label,
+.checkbox {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.options input,
+.checkbox input {
+  width: 22px;
+  height: 22px;
+}
+
+@media (max-width: 420px) {
+  .page {
+    padding: 0;
+    place-items: stretch;
+  }
+
+  .card {
+    min-height: 100svh;
+    border-radius: 0;
+  }
+}

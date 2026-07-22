@@ -17,8 +17,13 @@
 11. [Modal MedGemma 외부 데모 설계](./superpowers/specs/2026-07-20-modal-medgemma-external-demo-design.md)
 12. [Modal MedGemma 외부 데모 구현 계획](./superpowers/plans/2026-07-20-modal-medgemma-external-demo-implementation-plan.md)
 13. [모의 음성 입력 구현 계획](./superpowers/plans/2026-07-20-simulated-voice-input-implementation-plan.md)
+14. [U2 IndexedDB v1 schema와 repository 설계](./superpowers/specs/2026-07-22-u2-indexeddb-v1-repository-design.md)
+15. [U2 IndexedDB v1 repository 구현 계획](./superpowers/plans/2026-07-22-u2-indexeddb-v1-repository-implementation-plan.md)
+16. [U2 온보딩·홈 연결 설계](./superpowers/specs/2026-07-22-u2-onboarding-home-integration-design.md)
+17. [U2 온보딩·홈 연결 구현 계획](./superpowers/plans/2026-07-22-u2-onboarding-home-integration-plan.md)
+18. [U2 IndexedDB v1 실제 제품형 온보딩 개정 계획](./superpowers/plans/2026-07-22-u2-v1-actual-onboarding-revision-plan.md)
 
-현재 목표는 AI Persona UT 실행 도구가 아니라 해당 UT 시나리오를 충족하는 실제 문진 앱을 만드는 것이다. 외부 데모는 합성 Persona, Modal MedGemma, 실제 녹음·STT 없는 모의 음성 입력을 사용한다. 실제 환자 정보와 실제 음성 입력은 승인 범위가 아니다.
+현재 목표는 AI Persona UT 실행 도구가 아니라 실제 문진 앱을 만드는 것이다. 공개 제품 흐름에는 Persona 선택·주입을 노출하지 않으며 향후 별도 설계에서만 검토한다. 기존 U1 검증 harness와 자동화 test는 합성·비식별 데이터만 사용한다. 실제 환자 정보와 실제 음성 입력은 개발·검증 범위가 아니다.
 
 ## Modal 검증 명령
 
