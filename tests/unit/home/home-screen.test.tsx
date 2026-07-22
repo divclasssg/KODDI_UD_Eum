@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { HomeScreen } from "@/features/home/home-screen";
@@ -50,8 +50,46 @@ describe("HomeScreen", () => {
       await screen.findByRole("button", { name: /AI 문진 시작하기/ }),
     ).toHaveAttribute("aria-disabled", "true");
     expect(
-      screen.getByRole("button", { name: /수동 문진 시작하기/ }),
-    ).toHaveAttribute("aria-disabled", "true");
+      screen.getByRole("button", { name: "수동 문진 시작하기" }),
+    ).toBeEnabled();
+  });
+
+  it("수동 문진을 Persona 없는 실제 경로로 연결한다", async () => {
+    const navigate = vi.fn();
+    render(
+      <HomeScreen
+        loadState={() => Promise.resolve({ status: "ready", displayName: "테스트 사용자", aiTransfer: "declined" })}
+        navigate={navigate}
+      />,
+    );
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "수동 문진 시작하기" }),
+    );
+    expect(navigate).toHaveBeenCalledWith("/interview/manual");
+  });
+
+  it("프로필 수정과 전체 삭제의 실제 경로를 제공한다", async () => {
+    const navigate = vi.fn();
+    render(
+      <HomeScreen
+        loadState={() =>
+          Promise.resolve({
+            status: "ready",
+            displayName: "테스트 사용자",
+            aiTransfer: "declined",
+          })
+        }
+        navigate={navigate}
+      />,
+    );
+
+    await screen.findByRole("heading", { name: "테스트 사용자님, 안녕하세요" });
+    screen.getByRole("button", { name: "프로필 수정" }).click();
+    screen.getByRole("button", { name: "저장된 정보 모두 삭제" }).click();
+
+    expect(navigate).toHaveBeenNthCalledWith(1, "/profile");
+    expect(navigate).toHaveBeenNthCalledWith(2, "/settings/data");
   });
 
   it("동의나 프로필이 없으면 온보딩으로 복구한다", async () => {

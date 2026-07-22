@@ -8,6 +8,7 @@ import type {
   MedicalProfileRecordV1,
   ProfileRecordV1,
   RevisionToken,
+  SaveFinalProgressInputV1,
   SaveProgressInputV1,
   SaveSummaryInputV1,
   SummaryRecordV1,
@@ -24,6 +25,9 @@ import {
 
 export type InterviewRepository = {
   create(input: CreateInterviewInputV1): Promise<InterviewAggregateV1>;
+  findLatestInProgress(
+    mode: "ai" | "manual",
+  ): Promise<InterviewAggregateV1 | undefined>;
   loadInProgress(id: string): Promise<InterviewAggregateV1 | undefined>;
   saveProgress(
     token: RevisionToken,
@@ -33,6 +37,10 @@ export type InterviewRepository = {
     token: RevisionToken,
     input: SaveSummaryInputV1,
   ): Promise<InterviewAggregateV1>;
+  saveFinalProgress(
+    token: RevisionToken,
+    input: SaveFinalProgressInputV1,
+  ): Promise<InterviewAggregateV1>;
   complete(token: RevisionToken): Promise<InterviewAggregateV1>;
   listCompleted(): Promise<InterviewRecordV1[]>;
 };
@@ -40,6 +48,9 @@ export type InterviewRepository = {
 type InterviewRepositoryOptions = {
   now?: () => UtcTimestamp;
   assertRuntimeGeneration?: (generation: number) => void;
+  beforeFinalPut?: (
+    storeName: "interviews" | "interviewDrafts" | "messages" | "summaries",
+  ) => void;
 };
 
 async function requireConsent(transaction: IDBTransaction): Promise<void> {
@@ -171,6 +182,28 @@ export function createInterviewRepository(
       await transactionComplete(transaction);
       return { interview, draft, messages: [] };
     },
+    async findLatestInProgress(mode) {
+      const transaction = database.transaction(
+        ["consents", "interviews"],
+        "readonly",
+      );
+      const completion = transactionComplete(transaction);
+      await requireConsent(transaction);
+      const index = transaction.objectStore("interviews").index("byStatusUpdatedAt");
+      const [drafts, reviews] = await Promise.all([
+        requestResult<InterviewRecordV1[]>(
+          index.getAll(IDBKeyRange.bound(["draft", ""], ["draft", "\uffff"])),
+        ),
+        requestResult<InterviewRecordV1[]>(
+          index.getAll(IDBKeyRange.bound(["review", ""], ["review", "\uffff"])),
+        ),
+      ]);
+      await completion;
+      const latest = [...drafts, ...reviews]
+        .filter((interview) => interview.mode === mode)
+        .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))[0];
+      return latest ? loadInProgress(latest.id) : undefined;
+    },
     loadInProgress,
     async saveProgress(token, input) {
       assertRuntimeGeneration(token.runtimeGeneration);
@@ -297,6 +330,105 @@ export function createInterviewRepository(
       transaction.objectStore("summaries").put(summary);
       await transactionComplete(transaction);
       const aggregate = await loadInProgress(interview.id);
+      if (!aggregate) throw new InterviewNotFoundError();
+      return aggregate;
+    },
+    async saveFinalProgress(token, input) {
+      assertRuntimeGeneration(token.runtimeGeneration);
+      const transaction = database.transaction(
+        [
+          "consents",
+          "interviews",
+          "interviewDrafts",
+          "messages",
+          "summaries",
+        ],
+        "readwrite",
+      );
+      const completion = transactionComplete(transaction);
+      try {
+        await requireConsent(transaction);
+        const interview = await requestResult<InterviewRecordV1 | undefined>(
+          transaction.objectStore("interviews").get(token.interviewId),
+        );
+        assertMutableInterview(interview, token);
+        const existingMessages = await requestResult<InterviewMessageRecordV1[]>(
+          transaction
+            .objectStore("messages")
+            .index("byInterviewId")
+            .getAll(interview.id),
+        );
+        if (
+          input.appendedMessages.some(
+            (message, index) =>
+              message.sequence !== existingMessages.length + index,
+          )
+        ) {
+          throw new DatabaseCorruptionError();
+        }
+        const evidenceIds = new Set([
+          ...existingMessages.map(({ id }) => id),
+          ...input.appendedMessages.map(({ id }) => id),
+        ]);
+        const summaryItems = [
+          ...input.summary.content.subjective,
+          ...input.summary.content.objective,
+          ...input.summary.content.verificationNeeded,
+        ];
+        if (
+          summaryItems.some(({ evidenceMessageIds }) =>
+            evidenceMessageIds.some((id) => !evidenceIds.has(id)),
+          )
+        ) {
+          throw new DatabaseCorruptionError();
+        }
+        const nextRevision = interview.revision + 1;
+        const nextInterview: InterviewRecordV1 = {
+          ...interview,
+          revision: nextRevision,
+          status: "review",
+          updatedAt: input.summary.updatedAt,
+        };
+        const nextDraft: InterviewDraftRecordV1 = {
+          interviewId: interview.id,
+          schemaVersion: 1,
+          revision: nextRevision,
+          ...input.draft,
+        };
+        const summary: SummaryRecordV1 = {
+          interviewId: interview.id,
+          schemaVersion: 1,
+          revision: nextRevision,
+          status: "review",
+          ...input.summary,
+        };
+        options.beforeFinalPut?.("interviews");
+        transaction.objectStore("interviews").put(nextInterview);
+        options.beforeFinalPut?.("interviewDrafts");
+        transaction.objectStore("interviewDrafts").put(nextDraft);
+        for (const message of input.appendedMessages) {
+          options.beforeFinalPut?.("messages");
+          const record: InterviewMessageRecordV1 = {
+            interviewId: interview.id,
+            schemaVersion: 1,
+            ...message,
+          };
+          transaction.objectStore("messages").add(record);
+        }
+        options.beforeFinalPut?.("summaries");
+        transaction.objectStore("summaries").put(summary);
+      } catch (error) {
+        try {
+          transaction.abort();
+        } catch {
+          await completion.catch(() => undefined);
+          throw error;
+        }
+        await completion.catch(() => undefined);
+        throw error;
+      }
+      await completion;
+      const aggregate = await loadInProgress(token.interviewId);
       if (!aggregate) throw new InterviewNotFoundError();
       return aggregate;
     },

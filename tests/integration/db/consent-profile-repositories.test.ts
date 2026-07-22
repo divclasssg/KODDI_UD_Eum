@@ -98,6 +98,37 @@ describe("동의와 profile repository", () => {
 
     database.close();
   });
+
+  it("profile 수정 transaction이 실패하면 두 record를 모두 유지한다", async () => {
+    const database = await openMedicalInterviewDatabase();
+    await createConsentRepository(database).grant(
+      SYNTHETIC_DECLINED_AI_CONSENT_INPUT,
+    );
+    const originalRepository = createProfileRepository(database);
+    const original = await originalRepository.saveBundle(
+      SYNTHETIC_PROFILE_BUNDLE_INPUT,
+    );
+    const failingRepository = createProfileRepository(database, {
+      beforePutRecord(storeName) {
+        if (storeName === "medicalProfiles") {
+          throw new Error("합성 profile 수정 실패");
+        }
+      },
+    });
+
+    await expect(
+      failingRepository.saveBundle({
+        ...SYNTHETIC_PROFILE_BUNDLE_INPUT,
+        profile: {
+          ...SYNTHETIC_PROFILE_BUNDLE_INPUT.profile,
+          displayName: "수정한 테스트 사용자",
+        },
+      }),
+    ).rejects.toThrow("합성 profile 수정 실패");
+    expect(await originalRepository.getBundle()).toEqual(original);
+
+    database.close();
+  });
 });
 
 describe("동의 호출 경계", () => {

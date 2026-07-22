@@ -3,6 +3,7 @@ import type {
   CreateInterviewInputV1,
   GrantConsentInputV1,
   SaveProgressInputV1,
+  SaveFinalProgressInputV1,
   SaveSummaryInputV1,
   SaveProfileBundleInputV1,
 } from "@/lib/db/contracts";
@@ -125,4 +126,18 @@ export const SYNTHETIC_SUMMARY_INPUT: SaveSummaryInputV1 = {
   },
   createdAt: toUtcTimestamp("2026-07-22T01:02:00.000Z"),
   updatedAt: toUtcTimestamp("2026-07-22T01:02:00.000Z"),
+};
+
+export const SYNTHETIC_FINAL_PROGRESS_INPUT: SaveFinalProgressInputV1 = {
+  draft: {
+    ...SYNTHETIC_INTERVIEW_INPUT.draft,
+    input: {
+      mode: "text",
+      text: "",
+      selectedOptionIds: [],
+    },
+    updatedAt: toUtcTimestamp("2026-07-22T01:02:00.000Z"),
+  },
+  appendedMessages: SYNTHETIC_PROGRESS_INPUT.appendedMessages,
+  summary: SYNTHETIC_SUMMARY_INPUT,
 };

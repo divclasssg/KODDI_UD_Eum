@@ -7,6 +7,7 @@ import {
 } from "@/lib/db/contracts";
 import { openMedicalInterviewDatabase } from "@/lib/db/database";
 import {
+  ConsentRequiredError,
   DatabaseCorruptionError,
   ImmutableInterviewError,
   RevisionConflictError,
@@ -17,6 +18,7 @@ import { createProfileRepository } from "@/lib/db/profile-repository";
 
 import {
   SYNTHETIC_DECLINED_AI_CONSENT_INPUT,
+  SYNTHETIC_FINAL_PROGRESS_INPUT,
   SYNTHETIC_INTERVIEW_INPUT,
   SYNTHETIC_PROFILE_BUNDLE_INPUT,
   SYNTHETIC_PROGRESS_INPUT,
@@ -57,6 +59,96 @@ describe("Interview repository", () => {
     expect(restored?.draft).toEqual(saved.draft);
     expect(restored?.messages.map(({ sequence }) => sequence)).toEqual([0, 1]);
     expect(restored?.interview.revision).toBe(2);
+
+    database.close();
+  });
+
+  it("가장 최근 manual draft 또는 review만 복원한다", async () => {
+    const repository = createInterviewRepository(database);
+    await repository.create({
+      ...SYNTHETIC_INTERVIEW_INPUT,
+      id: "manual-old",
+    });
+    await repository.create({
+      ...SYNTHETIC_INTERVIEW_INPUT,
+      id: "ai-newer",
+      mode: "ai",
+      createdAt: toUtcTimestamp("2026-07-22T02:00:00.000Z"),
+      draft: {
+        ...SYNTHETIC_INTERVIEW_INPUT.draft,
+        updatedAt: toUtcTimestamp("2026-07-22T02:00:00.000Z"),
+      },
+    });
+    await repository.create({
+      ...SYNTHETIC_INTERVIEW_INPUT,
+      id: "manual-newest",
+      createdAt: toUtcTimestamp("2026-07-22T03:00:00.000Z"),
+      draft: {
+        ...SYNTHETIC_INTERVIEW_INPUT.draft,
+        updatedAt: toUtcTimestamp("2026-07-22T03:00:00.000Z"),
+      },
+    });
+
+    expect((await repository.findLatestInProgress("manual"))?.interview.id)
+      .toBe("manual-newest");
+    expect((await repository.findLatestInProgress("ai"))?.interview.id)
+      .toBe("ai-newer");
+
+    database.close();
+  });
+
+  it("마지막 답변과 summary를 한 revision의 review로 저장한다", async () => {
+    const repository = createInterviewRepository(database);
+    const created = await repository.create(SYNTHETIC_INTERVIEW_INPUT);
+
+    const reviewed = await repository.saveFinalProgress(
+      token(created),
+      SYNTHETIC_FINAL_PROGRESS_INPUT,
+    );
+
+    expect(reviewed.interview.status).toBe("review");
+    expect(reviewed.interview.revision).toBe(2);
+    expect(reviewed.draft?.revision).toBe(2);
+    expect(reviewed.summary?.revision).toBe(2);
+    expect(reviewed.messages).toHaveLength(2);
+
+    database.close();
+  });
+
+  it("마지막 답변 transaction 실패 시 aggregate 전체를 유지한다", async () => {
+    const originalRepository = createInterviewRepository(database);
+    const created = await originalRepository.create(SYNTHETIC_INTERVIEW_INPUT);
+    const failingRepository = createInterviewRepository(database, {
+      beforeFinalPut(storeName) {
+        if (storeName === "summaries") {
+          throw new Error("합성 마지막 답변 실패");
+        }
+      },
+    });
+
+    await expect(
+      failingRepository.saveFinalProgress(
+        token(created),
+        SYNTHETIC_FINAL_PROGRESS_INPUT,
+      ),
+    ).rejects.toThrow("합성 마지막 답변 실패");
+    expect(await originalRepository.loadInProgress(created.interview.id))
+      .toEqual(created);
+
+    database.close();
+  });
+
+  it("마지막 답변 직전 동의 철회는 ConsentRequired로 거부한다", async () => {
+    const repository = createInterviewRepository(database);
+    const created = await repository.create(SYNTHETIC_INTERVIEW_INPUT);
+    await createConsentRepository(database).withdrawLocalStorage();
+
+    await expect(
+      repository.saveFinalProgress(
+        token(created),
+        SYNTHETIC_FINAL_PROGRESS_INPUT,
+      ),
+    ).rejects.toBeInstanceOf(ConsentRequiredError);
 
     database.close();
   });

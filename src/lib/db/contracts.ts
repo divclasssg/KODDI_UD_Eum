@@ -221,3 +221,9 @@ export type SaveSummaryInputV1 = {
   createdAt: UtcTimestamp;
   updatedAt: UtcTimestamp;
 };
+
+export type SaveFinalProgressInputV1 = {
+  draft: InterviewDraftInputV1;
+  appendedMessages: InterviewMessageInputV1[];
+  summary: SaveSummaryInputV1;
+};

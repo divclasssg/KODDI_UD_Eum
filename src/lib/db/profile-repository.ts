@@ -13,8 +13,13 @@ export type ProfileRepository = {
   saveBundle(input: SaveProfileBundleInputV1): Promise<ProfileBundleV1>;
 };
 
+type ProfileRepositoryOptions = {
+  beforePutRecord?: (storeName: "profiles" | "medicalProfiles") => void;
+};
+
 export function createProfileRepository(
   database: IDBDatabase,
+  options: ProfileRepositoryOptions = {},
 ): ProfileRepository {
   return {
     async getBundle() {
@@ -58,9 +63,18 @@ export function createProfileRepository(
           ...input.medicalProfile,
         },
       };
-      transaction.objectStore("profiles").put(bundle.profile);
-      transaction.objectStore("medicalProfiles").put(bundle.medicalProfile);
-      await transactionComplete(transaction);
+      const completion = transactionComplete(transaction);
+      try {
+        options.beforePutRecord?.("profiles");
+        transaction.objectStore("profiles").put(bundle.profile);
+        options.beforePutRecord?.("medicalProfiles");
+        transaction.objectStore("medicalProfiles").put(bundle.medicalProfile);
+      } catch (error) {
+        transaction.abort();
+        await completion.catch(() => undefined);
+        throw error;
+      }
+      await completion;
       return bundle;
     },
   };

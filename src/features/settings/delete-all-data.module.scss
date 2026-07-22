@@ -7,8 +7,9 @@
   background: var(--color-bg-secondary);
 }
 
-.card {
-  width: min(100%, 393px);
+.card,
+.dialog {
+  width: min(100%, 520px);
   padding: 32px 24px;
   display: grid;
   gap: 20px;
@@ -16,19 +17,9 @@
   border-radius: var(--radius-2xl);
 
   h1,
+  h2,
   p {
     margin: 0;
-  }
-
-  h1 {
-    font-size: 28px;
-    line-height: 1.3;
-  }
-
-  p,
-  button {
-    font-size: 18px;
-    line-height: 1.5;
   }
 
   button {
@@ -36,6 +27,7 @@
     padding: 12px 18px;
     border: 1px solid var(--color-border-default);
     border-radius: var(--radius-md);
+    font: inherit;
     font-weight: 700;
   }
 
@@ -50,25 +42,34 @@
   font-weight: 700;
 }
 
-.actionGroup {
+.primary {
+  color: var(--color-text-on-primary);
+  background: var(--color-bg-brand-primary);
+}
+
+.danger {
+  color: var(--color-text-on-primary);
+  background: var(--color-red-700);
+}
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  padding: 24px;
   display: grid;
-  gap: 12px;
-  padding: 20px;
-  background: var(--color-bg-secondary);
-  border-radius: var(--radius-lg);
+  place-items: center;
+  background: rgb(0 0 0 / 55%);
 }
 
-.notice {
-  color: var(--color-text-secondary);
+.floatingStatus {
+  position: fixed;
+  inset-block-end: 24px;
+  padding: 12px 18px;
+  background: var(--color-bg-primary);
+  border-radius: var(--radius-md);
 }
 
-.managementGroup {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-}
-
-@media (max-width: 420px) {
+@media (max-width: 540px) {
   .page {
     padding: 0;
     place-items: stretch;
@@ -77,9 +78,5 @@
   .card {
     min-height: 100svh;
     border-radius: 0;
-  }
-
-  .managementGroup {
-    grid-template-columns: 1fr;
   }
 }

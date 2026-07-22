@@ -71,8 +71,8 @@ export function HomeScreen({ loadState, navigate }: HomeScreenProps) {
         {state.aiTransfer === "declined" ? (
           <div className={styles.actionGroup}>
             <p>외부 AI로 정보를 보내지 않아요.</p>
-            <button type="button" aria-disabled="true" disabled>
-              수동 문진 시작하기 · 준비 중
+            <button type="button" onClick={() => navigate("/interview/manual")}>
+              수동 문진 시작하기
             </button>
           </div>
         ) : (
@@ -80,12 +80,20 @@ export function HomeScreen({ loadState, navigate }: HomeScreenProps) {
             <button type="button" aria-disabled="true" disabled>
               AI 문진 시작하기 · 준비 중
             </button>
-            <button type="button" aria-disabled="true" disabled>
-              수동 문진 시작하기 · 준비 중
+            <button type="button" onClick={() => navigate("/interview/manual")}>
+              수동 문진 시작하기
             </button>
           </div>
         )}
-        <p className={styles.notice}>문진 시작 기능은 다음 업데이트에서 연결돼요.</p>
+        <p className={styles.notice}>수동 문진은 이 브라우저 안에서만 저장돼요. AI 문진은 준비 중이에요.</p>
+        <div className={styles.managementGroup}>
+          <button type="button" onClick={() => navigate("/profile")}>
+            프로필 수정
+          </button>
+          <button type="button" onClick={() => navigate("/settings/data")}>
+            저장된 정보 모두 삭제
+          </button>
+        </div>
       </section>
     </main>
   );
