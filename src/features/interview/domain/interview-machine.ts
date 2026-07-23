@@ -4,6 +4,8 @@ import {
   type QuestionSnapshotV2,
   type ValidatedAnswerV2,
 } from "./interview-draft";
+import type { AiTurnSnapshot } from "../ai/ai-interview-service";
+import type { SafetyStopActionV1 } from "@/lib/db/contracts";
 
 export type InterviewIdentity = {
   interviewId: string;
@@ -47,7 +49,7 @@ export type ReviewState = {
   phase: "review";
   sessionId: string;
   interview: InterviewIdentity;
-  summary: { items: string[] };
+  summary: { items: string[]; source?: "ai" | "manual" };
   errorCode?: string;
 };
 
@@ -56,13 +58,46 @@ export type CompletingState = Omit<ReviewState, "phase"> & {
   operation: OperationToken;
 };
 
+export type WaitingForQuestionState = {
+  phase: "waiting-for-question";
+  sessionId: string;
+  interview: InterviewIdentity;
+  history: AiTurnSnapshot[];
+  answeredAiFollowUps: number;
+  operation?: OperationToken;
+  errorCode?: string;
+};
+
+export type WaitingForSummaryState = Omit<
+  WaitingForQuestionState,
+  "phase"
+> & {
+  phase: "waiting-for-summary";
+};
+
+export type SafetyReviewState = {
+  phase: "safety-review";
+  sessionId: string;
+  interview: InterviewIdentity;
+  history: AiTurnSnapshot[];
+  reason: string;
+  message: string;
+  actions: readonly SafetyStopActionV1[];
+  operation?: OperationToken;
+  errorCode?: string;
+};
+
 export type InterviewDomainState =
   | { phase: "loading"; sessionId: string; operation: OperationToken }
   | AnsweringState
   | SubmittingState
   | ReviewState
   | CompletingState
+  | WaitingForQuestionState
+  | WaitingForSummaryState
+  | SafetyReviewState
   | { phase: "completed"; sessionId: string; interviewId: string }
+  | { phase: "safety-stopped"; sessionId: string; interviewId: string }
   | { phase: "load-error"; sessionId: string; errorCode: string }
   | { phase: "disposed"; sessionId: string };
 
@@ -76,11 +111,30 @@ export type SessionSnapshot =
   | {
       phase: "review";
       interview: InterviewIdentity;
-      summary: { items: string[] };
+      summary: { items: string[]; source?: "ai" | "manual" };
+    }
+  | {
+      phase: "waiting-for-question" | "waiting-for-summary";
+      interview: InterviewIdentity;
+      history: AiTurnSnapshot[];
+      answeredAiFollowUps: number;
+    }
+  | {
+      phase: "safety-review";
+      interview: InterviewIdentity;
+      history: AiTurnSnapshot[];
+      reason: string;
+      message: string;
+      actions: readonly SafetyStopActionV1[];
     };
 
 export type InterviewEvent =
-  | { type: "LOAD_SUCCEEDED"; token: OperationToken; snapshot: SessionSnapshot }
+  | {
+      type: "LOAD_SUCCEEDED";
+      token: OperationToken;
+      snapshot: SessionSnapshot;
+      continuationToken?: OperationToken;
+    }
   | { type: "LOAD_FAILED"; token: OperationToken; errorCode: string }
   | { type: "DRAFT_EDITED"; draft: CommonDraftV2 }
   | { type: "DRAFT_PERSIST_REQUESTED"; token: OperationToken }
@@ -91,8 +145,34 @@ export type InterviewEvent =
     }
   | { type: "DRAFT_PERSIST_FAILED"; token: OperationToken; errorCode: string }
   | { type: "SUBMIT_REQUESTED"; token: OperationToken }
-  | { type: "SUBMIT_SUCCEEDED"; token: OperationToken; snapshot: SessionSnapshot }
+  | {
+      type: "SUBMIT_SUCCEEDED";
+      token: OperationToken;
+      snapshot: SessionSnapshot;
+      continuationToken?: OperationToken;
+    }
   | { type: "SUBMIT_FAILED"; token: OperationToken; errorCode: string }
+  | {
+      type: "AI_QUESTION_SUCCEEDED";
+      token: OperationToken;
+      snapshot: SessionSnapshot;
+      continuationToken?: OperationToken;
+    }
+  | { type: "AI_QUESTION_FAILED"; token: OperationToken; errorCode: string }
+  | {
+      type: "AI_SUMMARY_SUCCEEDED";
+      token: OperationToken;
+      snapshot: Extract<SessionSnapshot, { phase: "review" }>;
+    }
+  | { type: "AI_SUMMARY_FAILED"; token: OperationToken; errorCode: string }
+  | { type: "AI_RETRY_REQUESTED"; token: OperationToken }
+  | {
+      type: "SAFETY_ACTION_REQUESTED";
+      token: OperationToken;
+      action: SafetyStopActionV1;
+    }
+  | { type: "SAFETY_ACTION_SUCCEEDED"; token: OperationToken }
+  | { type: "SAFETY_ACTION_FAILED"; token: OperationToken; errorCode: string }
   | { type: "COMPLETE_REQUESTED"; token: OperationToken }
   | { type: "COMPLETE_SUCCEEDED"; token: OperationToken }
   | { type: "COMPLETE_FAILED"; token: OperationToken; errorCode: string }
@@ -109,6 +189,21 @@ export type InterviewEffect =
       answer: ValidatedAnswerV2;
     }
   | { kind: "complete-interview"; token: OperationToken }
+  | {
+      kind: "request-ai-question";
+      token: OperationToken;
+      history: AiTurnSnapshot[];
+    }
+  | {
+      kind: "request-ai-summary";
+      token: OperationToken;
+      history: AiTurnSnapshot[];
+    }
+  | {
+      kind: "acknowledge-safety";
+      token: OperationToken;
+      action: SafetyStopActionV1;
+    }
   | { kind: "navigate"; path: "/home" }
   | {
       kind: "announce";
@@ -116,7 +211,10 @@ export type InterviewEffect =
         | "save-before-navigation"
         | "draft-save-failed"
         | "submit-failed"
-        | "complete-failed";
+        | "complete-failed"
+        | "ai-question-failed"
+        | "ai-summary-failed"
+        | "safety-action-failed";
     };
 
 export type MachineResult = {
@@ -134,27 +232,67 @@ function sameToken(left: OperationToken, right: OperationToken): boolean {
   );
 }
 
-function stateFromSnapshot(
+function resultFromSnapshot(
   sessionId: string,
   snapshot: SessionSnapshot,
-): AnsweringState | ReviewState {
+  continuationToken?: OperationToken,
+): MachineResult {
   if (snapshot.phase === "review") {
     return {
-      phase: "review",
-      sessionId,
-      interview: snapshot.interview,
-      summary: snapshot.summary,
+      state: {
+        phase: "review",
+        sessionId,
+        interview: snapshot.interview,
+        summary: snapshot.summary,
+      },
+      effects: [],
     };
   }
-  return {
-    phase: "answering",
+  if (snapshot.phase === "answering") {
+    return {
+      state: {
+        phase: "answering",
+        sessionId,
+        interview: snapshot.interview,
+        question: snapshot.question,
+        draft: snapshot.draft,
+        draftSync: "clean",
+        dirtySincePersist: false,
+        submitQueued: false,
+      },
+      effects: [],
+    };
+  }
+  if (snapshot.phase === "safety-review") {
+    return {
+      state: {
+        ...structuredClone(snapshot),
+        sessionId,
+      },
+      effects: [],
+    };
+  }
+  if (!continuationToken) {
+    return {
+      state: { phase: "load-error", sessionId, errorCode: "missing-continuation-token" },
+      effects: [],
+    };
+  }
+  const history = structuredClone(snapshot.history);
+  const state = {
+    ...structuredClone(snapshot),
     sessionId,
-    interview: snapshot.interview,
-    question: snapshot.question,
-    draft: snapshot.draft,
-    draftSync: "clean",
-    dirtySincePersist: false,
-    submitQueued: false,
+    operation: continuationToken,
+  };
+  return {
+    state,
+    effects: [{
+      kind: snapshot.phase === "waiting-for-question"
+        ? "request-ai-question"
+        : "request-ai-summary",
+      token: continuationToken,
+      history,
+    }],
   };
 }
 
@@ -201,7 +339,7 @@ export function transitionInterview(
   if (state.phase === "disposed") {
     return { state, effects: [] };
   }
-  if (state.phase === "completed") {
+  if (state.phase === "completed" || state.phase === "safety-stopped") {
     if (event.type === "NAVIGATION_REQUESTED") {
       return {
         state: { phase: "disposed", sessionId: state.sessionId },
@@ -220,6 +358,10 @@ export function transitionInterview(
     if (
       state.phase === "submitting" ||
       state.phase === "completing" ||
+      ((state.phase === "waiting-for-question" ||
+        state.phase === "waiting-for-summary") &&
+        Boolean(state.operation)) ||
+      state.phase === "safety-review" ||
       (state.phase === "answering" && state.draftSync !== "clean")
     ) {
       return blockNavigation(state);
@@ -235,7 +377,11 @@ export function transitionInterview(
       sameToken(state.operation, event.token)
     ) {
       return event.type === "LOAD_SUCCEEDED"
-        ? { state: stateFromSnapshot(state.sessionId, event.snapshot), effects: [] }
+        ? resultFromSnapshot(
+            state.sessionId,
+            event.snapshot,
+            event.continuationToken,
+          )
         : {
             state: {
               phase: "load-error",
@@ -350,10 +496,11 @@ export function transitionInterview(
       return { state, effects: [] };
     }
     if (event.type === "SUBMIT_SUCCEEDED") {
-      return {
-        state: stateFromSnapshot(state.sessionId, event.snapshot),
-        effects: [],
-      };
+      return resultFromSnapshot(
+        state.sessionId,
+        event.snapshot,
+        event.continuationToken,
+      );
     }
     return {
       state: {
@@ -368,6 +515,130 @@ export function transitionInterview(
         errorCode: event.errorCode,
       },
       effects: [{ kind: "announce", messageKey: "submit-failed" }],
+    };
+  }
+  if (state.phase === "waiting-for-question") {
+    if (event.type === "AI_RETRY_REQUESTED") {
+      if (state.operation || !state.errorCode) return { state, effects: [] };
+      const currentToken = {
+        ...event.token,
+        interviewId: state.interview.interviewId,
+        baseRevision: state.interview.revision,
+        runtimeGeneration: state.interview.runtimeGeneration,
+      };
+      return {
+        state: { ...state, operation: currentToken, errorCode: undefined },
+        effects: [{
+          kind: "request-ai-question",
+          token: currentToken,
+          history: structuredClone(state.history),
+        }],
+      };
+    }
+    if (
+      (event.type !== "AI_QUESTION_SUCCEEDED" &&
+        event.type !== "AI_QUESTION_FAILED") ||
+      !state.operation ||
+      !sameToken(state.operation, event.token)
+    ) {
+      return { state, effects: [] };
+    }
+    if (event.type === "AI_QUESTION_FAILED") {
+      const recoveryState = { ...state };
+      delete recoveryState.operation;
+      return {
+        state: { ...recoveryState, errorCode: event.errorCode },
+        effects: [{ kind: "announce", messageKey: "ai-question-failed" }],
+      };
+    }
+    return resultFromSnapshot(
+      state.sessionId,
+      event.snapshot,
+      event.continuationToken,
+    );
+  }
+  if (state.phase === "waiting-for-summary") {
+    if (event.type === "AI_RETRY_REQUESTED") {
+      if (state.operation || !state.errorCode) return { state, effects: [] };
+      const currentToken = {
+        ...event.token,
+        interviewId: state.interview.interviewId,
+        baseRevision: state.interview.revision,
+        runtimeGeneration: state.interview.runtimeGeneration,
+      };
+      return {
+        state: { ...state, operation: currentToken, errorCode: undefined },
+        effects: [{
+          kind: "request-ai-summary",
+          token: currentToken,
+          history: structuredClone(state.history),
+        }],
+      };
+    }
+    if (
+      (event.type !== "AI_SUMMARY_SUCCEEDED" &&
+        event.type !== "AI_SUMMARY_FAILED") ||
+      !state.operation ||
+      !sameToken(state.operation, event.token)
+    ) {
+      return { state, effects: [] };
+    }
+    if (event.type === "AI_SUMMARY_FAILED") {
+      const recoveryState = { ...state };
+      delete recoveryState.operation;
+      return {
+        state: { ...recoveryState, errorCode: event.errorCode },
+        effects: [{ kind: "announce", messageKey: "ai-summary-failed" }],
+      };
+    }
+    return resultFromSnapshot(state.sessionId, event.snapshot);
+  }
+  if (state.phase === "safety-review") {
+    if (event.type === "SAFETY_ACTION_REQUESTED") {
+      if (
+        state.operation ||
+        !(["call-119", "show-to-bystander", "view-summary"] as const).includes(
+          event.action,
+        )
+      ) {
+        return { state, effects: [] };
+      }
+      const currentToken = {
+        ...event.token,
+        interviewId: state.interview.interviewId,
+        baseRevision: state.interview.revision,
+        runtimeGeneration: state.interview.runtimeGeneration,
+      };
+      return {
+        state: { ...state, operation: currentToken, errorCode: undefined },
+        effects: [{
+          kind: "acknowledge-safety",
+          token: currentToken,
+          action: event.action,
+        }],
+      };
+    }
+    if (
+      (event.type !== "SAFETY_ACTION_SUCCEEDED" &&
+        event.type !== "SAFETY_ACTION_FAILED") ||
+      !state.operation ||
+      !sameToken(state.operation, event.token)
+    ) {
+      return { state, effects: [] };
+    }
+    if (event.type === "SAFETY_ACTION_SUCCEEDED") {
+      return {
+        state: {
+          phase: "safety-stopped",
+          sessionId: state.sessionId,
+          interviewId: state.interview.interviewId,
+        },
+        effects: [],
+      };
+    }
+    return {
+      state: { ...state, operation: undefined, errorCode: event.errorCode },
+      effects: [{ kind: "announce", messageKey: "safety-action-failed" }],
     };
   }
   if (state.phase === "review") {

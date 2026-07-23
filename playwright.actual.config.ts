@@ -6,7 +6,8 @@ const webServerEnvironment = {
   ...process.env,
   DEMO_ALLOWED_ORIGIN: "http://127.0.0.1:3101",
   DEMO_HMAC_SECRET: randomBytes(32).toString("hex"),
-  MEDGEMMA_TIMEOUT_MS: "85000",
+  MEDGEMMA_TIMEOUT_MS: "180000",
+  PUBLIC_AI_MAX_FOLLOW_UPS: "1",
 } as Record<string, string>;
 
 export default defineConfig({

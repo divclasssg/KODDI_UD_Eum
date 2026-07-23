@@ -6,6 +6,13 @@ import {
   type InterviewSlotId,
 } from "@/features/interview/model/interview-domain.types";
 
+import {
+  AI_CONTRACT_VERSION,
+  AI_PUBLIC_CONTRACT_VERSION,
+  type AiInterviewContext,
+  type AiQuestionResponseForContext,
+  type AiSummaryResponseForContext,
+} from "./contracts";
 import type { MedGemmaProvider } from "./provider";
 
 const QUESTION_TEXT: Record<InterviewSlotId, string> = {
@@ -36,31 +43,57 @@ function createQuestion(slot: InterviewSlotId): InterviewQuestion {
 
 export function createMockMedGemmaAdapter(): MedGemmaProvider {
   return {
-    async requestQuestion(context) {
+    async requestQuestion<TContext extends AiInterviewContext>(
+      context: TContext,
+    ): Promise<AiQuestionResponseForContext<TContext>> {
       const nextSlot = INTERVIEW_SLOT_IDS.find(
         (slot) => context.filledSlots[slot] === undefined,
       );
-      if (!nextSlot) return { version: "1", kind: "complete" };
+      if (!nextSlot) {
+        return (context.version === AI_CONTRACT_VERSION
+          ? { version: AI_CONTRACT_VERSION, kind: "complete" }
+          : {
+              version: AI_PUBLIC_CONTRACT_VERSION,
+              kind: "complete",
+            }) as unknown as AiQuestionResponseForContext<TContext>;
+      }
+      if (context.version === AI_PUBLIC_CONTRACT_VERSION) {
+        return {
+          version: AI_PUBLIC_CONTRACT_VERSION,
+          kind: "question",
+          question: createQuestion(nextSlot),
+        } as unknown as AiQuestionResponseForContext<TContext>;
+      }
       return {
-        version: "1",
+        version: AI_CONTRACT_VERSION,
         kind: "question",
         question: createQuestion(nextSlot),
-      };
+      } as unknown as AiQuestionResponseForContext<TContext>;
     },
-    async requestSummary(context) {
-      return {
-        version: "1",
-        kind: "summary",
-        summary: {
-          subjective: context.recentTurns.map((turn) => ({
-            id: `subjective-${turn.id}`,
-            text: turn.answer,
-            evidenceTurnIds: [turn.id],
-          })),
-          objective: [],
-          verificationNeeded: [],
-        },
+    async requestSummary<TContext extends AiInterviewContext>(
+      context: TContext,
+    ): Promise<AiSummaryResponseForContext<TContext>> {
+      const summary = {
+        subjective: context.recentTurns.map((turn) => ({
+          id: `subjective-${turn.id}`,
+          text: turn.answer,
+          evidenceTurnIds: [turn.id],
+        })),
+        objective: [],
+        verificationNeeded: [],
       };
+      if (context.version === AI_PUBLIC_CONTRACT_VERSION) {
+        return {
+          version: AI_PUBLIC_CONTRACT_VERSION,
+          kind: "summary",
+          summary,
+        } as unknown as AiSummaryResponseForContext<TContext>;
+      }
+      return {
+        version: AI_CONTRACT_VERSION,
+        kind: "summary",
+        summary,
+      } as unknown as AiSummaryResponseForContext<TContext>;
     },
   };
 }

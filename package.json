@@ -16,7 +16,7 @@
     "test:e2e": "next build --webpack && playwright test",
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:actual": "vitest run --config vitest.actual.config.ts",
-    "test:route-actual": "next build --webpack && playwright test --config playwright.actual.config.ts",
+    "test:route-actual": "PUBLIC_AI_MAX_FOLLOW_UPS=1 next build --webpack && playwright test --config playwright.actual.config.ts",
     "test:tokens": "node --test tests/design-token-contract.test.mjs",
     "test:unit": "vitest run",
     "typecheck": "tsc --noEmit"

@@ -51,8 +51,22 @@ class AiInterviewContextV1(StrictModel):
     recent_turns: list[InterviewTurn] = Field(alias="recentTurns", max_length=10)
 
 
+class AiInterviewContextV2(StrictModel):
+    version: Literal["2"]
+    interview_id: BoundedId = Field(alias="interviewId")
+    current_slot: InterviewSlotId | None = Field(default=None, alias="currentSlot")
+    filled_slots: dict[InterviewSlotId, AnswerText] = Field(alias="filledSlots")
+    recent_turns: list[InterviewTurn] = Field(alias="recentTurns", max_length=10)
+
+
+AiInterviewContext = Annotated[
+    AiInterviewContextV1 | AiInterviewContextV2,
+    Field(discriminator="version"),
+]
+
+
 class InferenceRequest(StrictModel):
     kind: Literal["question", "summary"]
-    context: AiInterviewContextV1
+    context: AiInterviewContext
     session_hash: HashText
     ip_hash: HashText

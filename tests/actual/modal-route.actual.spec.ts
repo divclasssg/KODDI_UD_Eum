@@ -1,12 +1,17 @@
 import { expect, test } from "@playwright/test";
 
-const ACTUAL_ENABLED = process.env.RUN_MEDGEMMA_ROUTE_ACTUAL === "1";
+import {
+  annotateKillSwitchRecovery,
+  MODAL_ROUTE_ACTUAL_ENABLED,
+  MODAL_ROUTE_ACTUAL_SKIP_REASON,
+} from "./modal-route-actual-safety";
 
-test.skip(!ACTUAL_ENABLED, "브라우저 actual gate는 명시적으로 활성화한다");
+test.skip(!MODAL_ROUTE_ACTUAL_ENABLED, MODAL_ROUTE_ACTUAL_SKIP_REASON);
 
 test("합성 답변이 인증된 Node Route를 거쳐 다음 질문을 표시한다", async ({
   page,
-}) => {
+}, testInfo) => {
+  annotateKillSwitchRecovery(testInfo);
   test.setTimeout(120_000);
   await page.goto("/interview/new?persona=kim");
 

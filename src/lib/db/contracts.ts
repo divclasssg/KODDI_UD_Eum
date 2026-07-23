@@ -1,6 +1,7 @@
 import { InvalidUtcTimestampError } from "./errors";
 import type {
   CommonDraftV2,
+  QuestionSnapshotV2,
   QuestionSetSnapshotV2,
 } from "@/features/interview/domain/interview-draft";
 
@@ -112,6 +113,11 @@ export type InterviewStatusV1 =
   | "completed"
   | "safety-stopped";
 
+export type SafetyStopActionV1 =
+  | "call-119"
+  | "show-to-bystander"
+  | "view-summary";
+
 export type InterviewQuestionSnapshotV1 = {
   id: string;
   slot: string;
@@ -137,6 +143,7 @@ export type InterviewRecordV1 = {
   updatedAt: UtcTimestamp;
   completedAt?: UtcTimestamp;
   profileSnapshot?: CompletedProfileSnapshotV1;
+  safetyStopAction?: SafetyStopActionV1;
 };
 
 export type InterviewRecordV2 = Omit<InterviewRecordV1, "schemaVersion"> & {
@@ -183,7 +190,7 @@ export type InterviewMessageInputV1 = {
   id: string;
   sequence: number;
   role: "assistant" | "user" | "system";
-  kind: "question" | "answer" | "safety";
+  kind: "question" | "answer" | "safety" | "completion";
   text: string;
   createdAt: UtcTimestamp;
 };
@@ -259,6 +266,16 @@ export type SaveProgressInput = SaveProgressInputV1 | SaveProgressInputV2;
 
 export type PersistDraftInputV2 = {
   commonDraft: CommonDraftV2;
+  updatedAt: UtcTimestamp;
+};
+
+export type SaveGeneratedQuestionInputV2 = {
+  question: QuestionSnapshotV2;
+  updatedAt: UtcTimestamp;
+};
+
+export type SaveSafetyReviewInputV1 = {
+  appendedMessages: InterviewMessageInputV1[];
   updatedAt: UtcTimestamp;
 };
 

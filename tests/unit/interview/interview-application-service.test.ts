@@ -66,6 +66,9 @@ function createService(
       summary: { items: ["합성 두통"] },
     }),
     complete: vi.fn().mockResolvedValue(undefined),
+    requestAiQuestion: vi.fn().mockResolvedValue(snapshot(2)),
+    requestAiSummary: vi.fn().mockResolvedValue(reviewSnapshot(3)),
+    acknowledgeSafety: vi.fn().mockResolvedValue(undefined),
     ...repositoryOverrides,
   };
   const navigate = vi.fn();
@@ -79,6 +82,255 @@ function createService(
 }
 
 describe("interview application service", () => {
+  it("AI question port 누락은 question failure state로 수렴한다", async () => {
+    const { service } = createService({
+      loadOrCreateManual: vi.fn().mockResolvedValue({
+        phase: "waiting-for-question",
+        interview: {
+          interviewId: "interview-1",
+          revision: 2,
+          runtimeGeneration: 0,
+        },
+        history: [],
+        answeredAiFollowUps: 0,
+      }),
+      requestAiQuestion: undefined,
+    });
+
+    service.start();
+    await service.whenIdle();
+
+    expect(service.getState()).toMatchObject({
+      phase: "waiting-for-question",
+      errorCode: "Error",
+    });
+  });
+
+  it("AI summary port 누락은 summary failure state로 수렴한다", async () => {
+    const { service } = createService({
+      loadOrCreateManual: vi.fn().mockResolvedValue({
+        phase: "waiting-for-summary",
+        interview: {
+          interviewId: "interview-1",
+          revision: 3,
+          runtimeGeneration: 0,
+        },
+        history: [],
+        answeredAiFollowUps: 0,
+      }),
+      requestAiSummary: undefined,
+    });
+
+    service.start();
+    await service.whenIdle();
+
+    expect(service.getState()).toMatchObject({
+      phase: "waiting-for-summary",
+      errorCode: "Error",
+    });
+  });
+
+  it("AI question 실패 뒤 retry는 새 request ID로 같은 durable revision을 요청한다", async () => {
+    const requestAiQuestion = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("합성 질문 실패"))
+      .mockResolvedValueOnce(snapshot(3));
+    const { service } = createService({
+      loadOrCreateManual: vi.fn().mockResolvedValue({
+        phase: "waiting-for-question",
+        interview: {
+          interviewId: "interview-1",
+          revision: 2,
+          runtimeGeneration: 0,
+        },
+        history: [],
+        answeredAiFollowUps: 0,
+      }),
+      requestAiQuestion,
+    });
+
+    service.start();
+    await service.whenIdle();
+    expect(service.getState()).not.toHaveProperty("operation");
+    expect(service).toHaveProperty("retryAi");
+    if (!("retryAi" in service) || typeof service.retryAi !== "function") return;
+
+    service.retryAi();
+    await service.whenIdle();
+
+    expect(requestAiQuestion).toHaveBeenCalledTimes(2);
+    expect(requestAiQuestion.mock.calls[0]?.[0].token).toMatchObject({
+      requestId: "id-3",
+      baseRevision: 2,
+    });
+    expect(requestAiQuestion.mock.calls[1]?.[0].token).toMatchObject({
+      requestId: "id-4",
+      baseRevision: 2,
+    });
+    expect(service.getState()).toMatchObject({
+      phase: "answering",
+      interview: { revision: 3 },
+    });
+  });
+
+  it("safety port 누락은 action failure state로 수렴해 재시도를 연다", async () => {
+    const { service } = createService({
+      loadOrCreateManual: vi.fn().mockResolvedValue({
+        phase: "safety-review",
+        interview: {
+          interviewId: "interview-1",
+          revision: 2,
+          runtimeGeneration: 0,
+        },
+        history: [],
+        reason: "breathing-difficulty",
+        message: "지금은 문진보다 안전이 먼저예요.",
+        actions: ["call-119", "show-to-bystander", "view-summary"],
+      }),
+      acknowledgeSafety: undefined,
+    });
+    service.start();
+    await service.whenIdle();
+
+    service.acknowledgeSafety("call-119");
+    await service.whenIdle();
+
+    expect(service.getState()).toMatchObject({
+      phase: "safety-review",
+      operation: undefined,
+      errorCode: "Error",
+    });
+  });
+
+  it("submit continuation마다 새 request ID를 발급해 question 뒤 summary까지 실행한다", async () => {
+    const requestAiQuestion = vi.fn().mockResolvedValue({
+      phase: "waiting-for-summary",
+      interview: {
+        interviewId: "interview-1",
+        revision: 3,
+        runtimeGeneration: 0,
+      },
+      history: [{
+        id: "answer-message-1",
+        questionMessageId: "question-message-0",
+        answerMessageId: "answer-message-1",
+        questionId: QUESTION.id,
+        slot: QUESTION.slot,
+        question: QUESTION.text,
+        answer: "합성 두통",
+      }],
+      answeredAiFollowUps: 0,
+    });
+    const requestAiSummary = vi.fn().mockResolvedValue({
+      ...reviewSnapshot(4),
+      summary: { items: ["합성 AI 요약"], source: "ai" as const },
+    });
+    const { repository, service } = createService({
+      submitAnswer: vi.fn().mockResolvedValue({
+        phase: "waiting-for-question",
+        interview: {
+          interviewId: "interview-1",
+          revision: 2,
+          runtimeGeneration: 0,
+        },
+        history: [{
+          id: "answer-message-1",
+          questionMessageId: "question-message-0",
+          answerMessageId: "answer-message-1",
+          questionId: QUESTION.id,
+          slot: QUESTION.slot,
+          question: QUESTION.text,
+          answer: "합성 두통",
+        }],
+        answeredAiFollowUps: 0,
+      }),
+      requestAiQuestion,
+      requestAiSummary,
+    });
+    service.start();
+    await service.whenIdle();
+
+    service.submit();
+    await service.whenIdle();
+
+    expect(repository.submitAnswer).toHaveBeenCalledWith(expect.objectContaining({
+      token: expect.objectContaining({ requestId: "id-3", baseRevision: 1 }),
+    }));
+    expect(requestAiQuestion).toHaveBeenCalledWith(expect.objectContaining({
+      token: expect.objectContaining({ requestId: "id-4", baseRevision: 2 }),
+    }));
+    expect(requestAiSummary).toHaveBeenCalledWith(expect.objectContaining({
+      token: expect.objectContaining({ requestId: "id-5", baseRevision: 3 }),
+    }));
+    expect(service.getState()).toMatchObject({
+      phase: "review",
+      summary: { items: ["합성 AI 요약"], source: "ai" },
+    });
+  });
+
+  it("safety action은 하나만 저장하고 exact 성공 뒤 safety-stopped가 된다", async () => {
+    const pendingSafety = deferred<void>();
+    const acknowledgeSafety = vi.fn(() => pendingSafety.promise);
+    const { service } = createService({
+      loadOrCreateManual: vi.fn().mockResolvedValue({
+        phase: "safety-review",
+        interview: {
+          interviewId: "interview-1",
+          revision: 2,
+          runtimeGeneration: 0,
+        },
+        history: [],
+        reason: "breathing-difficulty",
+        message: "지금은 문진보다 안전이 먼저예요.",
+        actions: ["call-119", "show-to-bystander", "view-summary"],
+      }),
+      acknowledgeSafety,
+    });
+    service.start();
+    await service.whenIdle();
+
+    service.acknowledgeSafety("call-119");
+    service.acknowledgeSafety("call-119");
+    expect(acknowledgeSafety).toHaveBeenCalledOnce();
+
+    pendingSafety.resolve();
+    await service.whenIdle();
+
+    expect(service.getState()).toEqual({
+      phase: "safety-stopped",
+      sessionId: "id-1",
+      interviewId: "interview-1",
+    });
+  });
+
+  it("AI 대기 navigation을 차단하고 reset 뒤 늦은 AI 결과를 폐기한다", async () => {
+    let runtimeGeneration = 0;
+    const pendingQuestion = deferred<SessionSnapshot>();
+    const { navigate, service } = createService({
+      loadOrCreateManual: vi.fn().mockResolvedValue({
+        phase: "waiting-for-question",
+        interview: {
+          interviewId: "interview-1",
+          revision: 2,
+          runtimeGeneration: 0,
+        },
+        history: [],
+        answeredAiFollowUps: 0,
+      }),
+      requestAiQuestion: vi.fn(() => pendingQuestion.promise),
+    }, () => runtimeGeneration);
+    service.start();
+    await vi.waitFor(() => expect(service.getState().phase).toBe("waiting-for-question"));
+
+    service.navigate("/home");
+    expect(navigate).not.toHaveBeenCalled();
+
+    runtimeGeneration = 1;
+    pendingQuestion.resolve(snapshot(3));
+    await service.whenIdle();
+
+    expect(service.getState()).toEqual({ phase: "disposed", sessionId: "id-1" });
+  });
   it("load effect를 실행해 answering snapshot을 machine에 전달한다", async () => {
     const { repository, service } = createService();
 

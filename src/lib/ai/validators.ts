@@ -9,11 +9,19 @@ import {
 
 import {
   AI_CONTRACT_VERSION,
+  AI_PUBLIC_CONTRACT_VERSION,
   AI_MAX_RECENT_TURNS,
   AI_MAX_REQUEST_BYTES,
+  type AiContractVersion,
+  type AiInterviewContext,
   type AiInterviewContextV1,
+  type AiInterviewContextV2,
+  type AiQuestionResponse,
   type AiQuestionResponseV1,
+  type AiQuestionResponseV2,
+  type AiSummaryResponse,
   type AiSummaryResponseV1,
+  type AiSummaryResponseV2,
 } from "./contracts";
 
 export type AiContractErrorCode =
@@ -112,7 +120,7 @@ function readPersona(value: unknown): DemoPersonaId {
   return value as DemoPersonaId;
 }
 
-function readTurn(value: unknown): AiInterviewContextV1["recentTurns"][number] {
+function readTurn(value: unknown): AiInterviewContext["recentTurns"][number] {
   const object = readObject(value);
   allowOnly(object, ["id", "question", "answer"]);
   return {
@@ -122,10 +130,10 @@ function readTurn(value: unknown): AiInterviewContextV1["recentTurns"][number] {
   };
 }
 
-function readFilledSlots(value: unknown): AiInterviewContextV1["filledSlots"] {
+function readFilledSlots(value: unknown): AiInterviewContext["filledSlots"] {
   const object = readObject(value);
   allowOnly(object, INTERVIEW_SLOT_IDS);
-  const result: AiInterviewContextV1["filledSlots"] = {};
+  const result: AiInterviewContext["filledSlots"] = {};
 
   for (const [key, slotValue] of Object.entries(object)) {
     result[key as InterviewSlotId] = readString(slotValue, 2_000);
@@ -219,6 +227,46 @@ export function parseAiInterviewContextV1(
   };
 }
 
+export function parseAiInterviewContextV2(
+  value: unknown,
+): AiInterviewContextV2 {
+  assertSerializedSize(value);
+  const object = readObject(value);
+  allowOnly(object, [
+    "version",
+    "interviewId",
+    "currentSlot",
+    "filledSlots",
+    "recentTurns",
+  ]);
+  if (object.version !== AI_PUBLIC_CONTRACT_VERSION) fail("invalid-value");
+  if (!Array.isArray(object.recentTurns)) fail("invalid-shape");
+  if (object.recentTurns.length > AI_MAX_RECENT_TURNS) {
+    fail("limit-exceeded");
+  }
+
+  return {
+    version: AI_PUBLIC_CONTRACT_VERSION,
+    interviewId: readString(object.interviewId, 128),
+    ...(object.currentSlot === undefined
+      ? {}
+      : { currentSlot: readSlot(object.currentSlot) }),
+    filledSlots: readFilledSlots(object.filledSlots),
+    recentTurns: object.recentTurns.map(readTurn),
+  };
+}
+
+export function parseAiInterviewContext(value: unknown): AiInterviewContext {
+  const object = readObject(value);
+  if (object.version === AI_CONTRACT_VERSION) {
+    return parseAiInterviewContextV1(value);
+  }
+  if (object.version === AI_PUBLIC_CONTRACT_VERSION) {
+    return parseAiInterviewContextV2(value);
+  }
+  fail("invalid-value");
+}
+
 export function parseAiQuestionResponseV1(
   value: unknown,
 ): AiQuestionResponseV1 {
@@ -236,6 +284,38 @@ export function parseAiQuestionResponseV1(
     kind: "question",
     question: readQuestion(object.question),
   };
+}
+
+export function parseAiQuestionResponseV2(
+  value: unknown,
+): AiQuestionResponseV2 {
+  const object = readObject(value);
+  if (object.version !== AI_PUBLIC_CONTRACT_VERSION) fail("invalid-value");
+
+  if (object.kind === "complete") {
+    allowOnly(object, ["version", "kind"]);
+    return { version: AI_PUBLIC_CONTRACT_VERSION, kind: "complete" };
+  }
+  if (object.kind !== "question") fail("invalid-value");
+  allowOnly(object, ["version", "kind", "question"]);
+  return {
+    version: AI_PUBLIC_CONTRACT_VERSION,
+    kind: "question",
+    question: readQuestion(object.question),
+  };
+}
+
+export function parseAiQuestionResponse(
+  value: unknown,
+  version: AiContractVersion,
+): AiQuestionResponse {
+  if (version === AI_CONTRACT_VERSION) {
+    return parseAiQuestionResponseV1(value);
+  }
+  if (version === AI_PUBLIC_CONTRACT_VERSION) {
+    return parseAiQuestionResponseV2(value);
+  }
+  fail("invalid-value");
 }
 
 export function parseAiSummaryResponseV1(
@@ -270,4 +350,56 @@ export function parseAiSummaryResponseV1(
   };
 
   return { version: AI_CONTRACT_VERSION, kind: "summary", summary };
+}
+
+export function parseAiSummaryResponseV2(
+  value: unknown,
+  evidenceTurnIds?: ReadonlySet<string>,
+): AiSummaryResponseV2 {
+  const object = readObject(value);
+  allowOnly(object, ["version", "kind", "summary"]);
+  if (
+    object.version !== AI_PUBLIC_CONTRACT_VERSION ||
+    object.kind !== "summary"
+  ) {
+    fail("invalid-value");
+  }
+
+  const summaryObject = readObject(object.summary);
+  allowOnly(summaryObject, [
+    "subjective",
+    "objective",
+    "verificationNeeded",
+  ]);
+  const summary: InterviewSummary = {
+    subjective: readSummarySection(
+      summaryObject.subjective,
+      evidenceTurnIds,
+    ),
+    objective: readSummarySection(summaryObject.objective, evidenceTurnIds),
+    verificationNeeded: readSummarySection(
+      summaryObject.verificationNeeded,
+      evidenceTurnIds,
+    ),
+  };
+
+  return {
+    version: AI_PUBLIC_CONTRACT_VERSION,
+    kind: "summary",
+    summary,
+  };
+}
+
+export function parseAiSummaryResponse(
+  value: unknown,
+  version: AiContractVersion,
+  evidenceTurnIds?: ReadonlySet<string>,
+): AiSummaryResponse {
+  if (version === AI_CONTRACT_VERSION) {
+    return parseAiSummaryResponseV1(value, evidenceTurnIds);
+  }
+  if (version === AI_PUBLIC_CONTRACT_VERSION) {
+    return parseAiSummaryResponseV2(value, evidenceTurnIds);
+  }
+  fail("invalid-value");
 }

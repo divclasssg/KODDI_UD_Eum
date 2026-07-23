@@ -58,6 +58,17 @@
   border-radius: var(--radius-lg);
 }
 
+.primary {
+  color: var(--color-text-on-primary);
+  background: var(--color-bg-brand-primary);
+}
+
+.recordsAction {
+  color: var(--color-text-brand);
+  border-color: var(--color-border-brand-subtle);
+  background: var(--color-bg-brand-secondary);
+}
+
 .notice {
   color: var(--color-text-secondary);
 }

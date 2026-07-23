@@ -1,8 +1,12 @@
 import { describe, expect, it } from "vitest";
 
+import { getPromptPolicy } from "@/lib/ai/prompt";
 import {
   AiContractError,
+  parseAiInterviewContext,
   parseAiInterviewContextV1,
+  parseAiQuestionResponse,
+  parseAiSummaryResponse,
   parseAiQuestionResponseV1,
   parseAiSummaryResponseV1,
 } from "@/lib/ai/validators";
@@ -22,7 +26,63 @@ const VALID_CONTEXT = {
   ],
 } as const;
 
+const VALID_PUBLIC_CONTEXT = {
+  version: "2",
+  interviewId: "ai-public-001",
+  currentSlot: "onset",
+  filledSlots: { "chief-complaint": "두통" },
+  recentTurns: [],
+} as const;
+
 describe("AI 계약 validator", () => {
+  it("공개 V2 policy에서 Persona 역할극 없이 안전한 문진 지침을 반환한다", () => {
+    const policy = getPromptPolicy("question", "2");
+
+    expect(policy).toContain("공개 문진 보조 질문만 생성한다.");
+    expect(policy).toContain("한 문장, 한 의도, 쉬운 한국어로 질문한다.");
+    expect(policy).toContain("진단, 치료, 복약 지시를 생성하지 않는다.");
+    expect(policy).not.toContain("합성 Persona 역할극의 문진 질문만 생성한다.");
+  });
+
+  it("알 수 없는 version의 parser와 prompt policy를 거절한다", () => {
+    expect(() =>
+      parseAiQuestionResponse(
+        { version: "2", kind: "complete" },
+        "3" as never,
+      ),
+    ).toThrowError(expect.objectContaining({ code: "invalid-value" }));
+    expect(() =>
+      parseAiSummaryResponse(
+        {
+          version: "2",
+          kind: "summary",
+          summary: { subjective: [], objective: [], verificationNeeded: [] },
+        },
+        "3" as never,
+      ),
+    ).toThrowError(expect.objectContaining({ code: "invalid-value" }));
+    expect(() => getPromptPolicy("question", "3" as never)).toThrow(
+      "Unsupported AI contract version",
+    );
+  });
+
+  it("Persona 없이 공개 V2 문진 context를 명시적으로 반환한다", () => {
+    expect(parseAiInterviewContext(VALID_PUBLIC_CONTEXT)).toMatchObject({
+      version: "2",
+      interviewId: "ai-public-001",
+    });
+  });
+
+  it.each([
+    ["personaId", "persona-kim"],
+    ["displayName", "김하나"],
+    ["birthDate", "1990-01-01"],
+  ])("공개 V2 context의 %s profile field를 거절한다", (field, value) => {
+    expect(() =>
+      parseAiInterviewContext({ ...VALID_PUBLIC_CONTEXT, [field]: value }),
+    ).toThrowError(expect.objectContaining({ code: "unknown-field" }));
+  });
+
   it("유효한 문진 context의 문자열을 정리해 반환한다", () => {
     const parsed = parseAiInterviewContextV1({
       ...VALID_CONTEXT,

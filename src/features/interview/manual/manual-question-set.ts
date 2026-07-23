@@ -9,6 +9,7 @@ import type {
 } from "../domain/interview-draft";
 
 export const MANUAL_QUESTION_SET_ID = "manual-intake-v1";
+export const PUBLIC_AI_QUESTION_SET_ID = "public-ai-intake-v2";
 
 export type ManualQuestionV1 = InterviewQuestionSnapshotV1 & {
   inputMode: "text" | "choice";
@@ -159,6 +160,31 @@ export const MANUAL_QUESTION_SET_V2: QuestionSetSnapshotV2 = {
   id: MANUAL_QUESTION_SET_ID,
   questions: MANUAL_QUESTIONS_V1.map(toV2Question),
 };
+
+export function createDeterministicFirstAiQuestion(): QuestionSnapshotV2 {
+  const question = structuredClone(MANUAL_QUESTION_SET_V2.questions[0]);
+  if (!question) throw new Error("manual-first-question-missing");
+  return {
+    ...question,
+    id: "ai-question-001",
+  };
+}
+
+export function createDeterministicFallbackAiQuestion(
+  answeredSlots: readonly string[],
+  ordinal: number,
+): QuestionSnapshotV2 {
+  const answered = new Set(answeredSlots);
+  const question = MANUAL_QUESTION_SET_V2.questions
+    .slice(1)
+    .find((candidate) => !answered.has(candidate.slot)) ??
+    MANUAL_QUESTION_SET_V2.questions.at(-1);
+  if (!question) throw new Error("manual-fallback-question-missing");
+  return {
+    ...structuredClone(question),
+    id: `public-ai-fallback:${question.slot}:${ordinal}`,
+  };
+}
 
 export function getManualQuestion(index: number): ManualQuestionV1 | undefined {
   return MANUAL_QUESTIONS_V1[index];

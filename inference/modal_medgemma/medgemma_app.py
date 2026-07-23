@@ -17,7 +17,7 @@ from .prompts import (
     question_is_complete,
 )
 from .quota import reserve_quota
-from .schemas import AiInterviewContextV1, InferenceRequest
+from .schemas import InferenceRequest
 
 
 MODEL_ID = "google/medgemma-1.5-4b-it"
@@ -44,7 +44,7 @@ GPU_SCALEDOWN_WINDOW = 60
 GPU_TIMEOUT = 60
 QUESTION_MAX_NEW_TOKENS = 64
 SUMMARY_MAX_NEW_TOKENS = 64
-WEB_TIMEOUT = 85
+WEB_TIMEOUT = 180
 
 LOGGER = logging.getLogger(__name__)
 
@@ -157,9 +157,20 @@ class MedGemmaModel:
     def generate(self, kind: str, context: dict[str, object]) -> str:
         import torch
 
-        validated_context = AiInterviewContextV1.model_validate(context)
+        validated_context = InferenceRequest.model_validate(
+            {
+                "kind": kind,
+                "context": context,
+                "session_hash": "0" * 64,
+                "ip_hash": "0" * 64,
+            }
+        ).context
         if kind == "question" and question_is_complete(validated_context):
-            return '{"version":"1","kind":"complete"}'
+            return (
+                '{"version":"'
+                f"{validated_context.version}"
+                '","kind":"complete"}'
+            )
         messages = build_messages(kind, validated_context)
         inputs = self.processor.apply_chat_template(
             messages,

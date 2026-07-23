@@ -55,6 +55,12 @@ test("합성 의료정보를 저장하고 새로고침 뒤 홈을 복원한다",
   await expect(page.locator("body")).not.toContainText(
     /persona|페르소나|fixture/i,
   );
+
+  await page.goto("/interview/ai");
+  await expect(
+    page.getByRole("heading", { name: "AI 문진을 불러오지 못했어요" }),
+  ).toBeVisible();
+  expect(aiRequests).toEqual([]);
 });
 
 test("로컬 저장을 거부하면 database를 만들지 않는다", async ({ page }) => {

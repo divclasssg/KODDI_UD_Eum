@@ -6,7 +6,7 @@ import { cookies } from "next/headers";
 
 import {
   AI_MAX_REQUEST_BYTES,
-  type AiInterviewContextV1,
+  type AiInterviewContext,
 } from "@/lib/ai/contracts";
 import {
   createMedGemmaProvider,
@@ -14,8 +14,9 @@ import {
 } from "@/lib/ai/provider";
 import {
   AiContractError,
-  parseAiInterviewContextV1,
+  parseAiInterviewContext,
 } from "@/lib/ai/validators";
+import { validateGeneratedQuestion } from "@/lib/ai/question-safety-validator";
 
 import {
   createAiRequestIdentity,
@@ -52,7 +53,7 @@ function errorResponse(code: string, status: number): Response {
   return jsonResponse({ error: { code } }, status);
 }
 
-function hasDirectIdentifier(context: AiInterviewContextV1): boolean {
+function hasDirectIdentifier(context: AiInterviewContext): boolean {
   const values = [
     ...Object.values(context.filledSlots),
     ...context.recentTurns.map((turn) => turn.answer),
@@ -127,9 +128,9 @@ export async function handleAiPost(
     return errorResponse("invalid-request", 400);
   }
 
-  let context: AiInterviewContextV1;
+  let context: AiInterviewContext;
   try {
-    context = parseAiInterviewContextV1(parsedBody);
+    context = parseAiInterviewContext(parsedBody);
   } catch (error) {
     if (error instanceof AiContractError && error.code === "request-too-large") {
       return errorResponse("request-too-large", 413);
@@ -161,6 +162,17 @@ export async function handleAiPost(
       kind === "question"
         ? await config.provider.requestQuestion(context, request.signal, identity)
         : await config.provider.requestSummary(context, request.signal, identity);
+    if (
+      kind === "question" &&
+      value.kind === "question" &&
+      validateGeneratedQuestion(
+        value.question,
+        context.recentTurns.map((turn) => turn.question),
+        context.recentTurns.map((turn) => turn.answer),
+      ).status === "invalid"
+    ) {
+      throw new Error("invalid-provider-response");
+    }
     const response = jsonResponse(value, 200);
     if (session.isNew) {
       response.headers.set(

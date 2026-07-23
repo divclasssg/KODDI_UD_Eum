@@ -1,9 +1,9 @@
 import "server-only";
 
 import type {
-  AiInterviewContextV1,
-  AiQuestionResponseV1,
-  AiSummaryResponseV1,
+  AiInterviewContext,
+  AiQuestionResponseForContext,
+  AiSummaryResponseForContext,
 } from "./contracts";
 import {
   MedGemmaProviderError,
@@ -11,9 +11,11 @@ import {
   type MedGemmaProvider,
 } from "./provider";
 import {
-  parseAiQuestionResponseV1,
-  parseAiSummaryResponseV1,
+  parseAiQuestionResponse,
+  parseAiSummaryResponse,
 } from "./validators";
+import { validateGeneratedQuestion } from "./question-safety-validator";
+import { validateSummaryEvidence } from "./summary-evidence-validator";
 
 export { MedGemmaProviderError } from "./provider";
 
@@ -58,7 +60,7 @@ export function createModalMedGemmaAdapter({
 }: ModalAdapterOptions): MedGemmaProvider {
   async function request(
     kind: ModalKind,
-    context: AiInterviewContextV1,
+    context: AiInterviewContext,
     callerSignal: AbortSignal,
     identity: AiRequestIdentity,
   ): Promise<unknown> {
@@ -126,21 +128,55 @@ export function createModalMedGemmaAdapter({
   }
 
   return {
-    async requestQuestion(context, signal, identity): Promise<AiQuestionResponseV1> {
+    async requestQuestion<TContext extends AiInterviewContext>(
+      context: TContext,
+      signal: AbortSignal,
+      identity: AiRequestIdentity,
+    ): Promise<AiQuestionResponseForContext<TContext>> {
       const value = await request("question", context, signal, identity);
       try {
-        return parseAiQuestionResponseV1(value);
+        const parsed = parseAiQuestionResponse(
+          value,
+          context.version,
+        );
+        if (
+          parsed.kind === "question" &&
+          validateGeneratedQuestion(
+            parsed.question,
+            context.recentTurns.map((turn) => turn.question),
+            context.recentTurns.map((turn) => turn.answer),
+          ).status === "invalid"
+        ) {
+          throw new MedGemmaProviderError("invalid-provider-response");
+        }
+        return parsed as AiQuestionResponseForContext<TContext>;
       } catch {
         throw new MedGemmaProviderError("invalid-provider-response");
       }
     },
-    async requestSummary(context, signal, identity): Promise<AiSummaryResponseV1> {
+    async requestSummary<TContext extends AiInterviewContext>(
+      context: TContext,
+      signal: AbortSignal,
+      identity: AiRequestIdentity,
+    ): Promise<AiSummaryResponseForContext<TContext>> {
       const value = await request("summary", context, signal, identity);
       try {
-        return parseAiSummaryResponseV1(
+        const parsed = parseAiSummaryResponse(
           value,
+          context.version,
           new Set(context.recentTurns.map((turn) => turn.id)),
         );
+        const validation = validateSummaryEvidence(
+          parsed.summary,
+          context.recentTurns,
+        );
+        if (validation.usedFallback) {
+          throw new MedGemmaProviderError("invalid-provider-response");
+        }
+        return {
+          ...parsed,
+          summary: validation.summary,
+        } as AiSummaryResponseForContext<TContext>;
       } catch {
         throw new MedGemmaProviderError("invalid-provider-response");
       }

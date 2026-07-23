@@ -8,7 +8,7 @@
 - [x] `lint`
 - [x] `typecheck`
 - [x] unit tests
-- [ ] integration tests
+- [x] integration tests
 - [x] deterministic mock `test:e2e`
 - [x] opt-in serial `test:actual`
 - [x] production build
@@ -23,10 +23,12 @@
 
 증거(2026-07-21): opt-in actual harness 5건은 credential 없이 명시적으로 skip된다. 활성화한 MedGemma gate에서 세 합성 Persona 질문 9회·요약 3회가 통과했고 CPU-only quota gate 4건도 통과했다. payload 본문과 credential은 출력하거나 기록하지 않았으며 최종 kill switch 재배포 뒤 인증 503을 확인했다.
 
+증거(2026-07-22 U4): lint·typecheck, unit 36개 파일·365건, integration 6개 파일·67건, Modal Python 42건과 production build·Chromium E2E 23건이 통과했다. 공개 AI actual harness는 작성했지만 비용 승인을 받지 않아 실행하지 않았다.
+
 ### 핵심 사용자 과업 Gate
 
 - [ ] Task 1A actual AI 문진·요약 확정·completed 저장
-- [ ] Task 1B AI 비동의 manual 문진·기록 확인
+- [x] Task 1B AI 비동의 manual 문진·기록 확인
 - [ ] Task 1B provider 실패 manual 문진·기록 확인
 - [ ] Task 2 오늘 기록·clinician view
 - [ ] Task 3 과거 기록·profile edit·snapshot 보존
@@ -34,21 +36,21 @@
 
 ### 안전·개인정보·접근성 Gate
 
-- [ ] 합성 Persona 데이터만 사용
-- [ ] direct identifier·unknown field·oversize payload provider 호출 전 거절
-- [ ] prompt injection·markup fixture 거절
-- [ ] 진단·치료·복약 지시·근거 없는 요약 거절
-- [ ] 위험 안내가 일반 AI 질문보다 먼저 표시
-- [ ] 동의 철회 시 해당 외부 호출 0건
-- [ ] reset 뒤 모든 store 0건
-- [ ] 늦은 AI 응답·모의 음성 timer가 current revision에 반영되지 않음
+- [x] 합성 Persona 데이터만 사용
+- [x] direct identifier·unknown field·oversize payload provider 호출 전 거절
+- [x] prompt injection·markup fixture 거절
+- [x] 진단·치료·복약 지시·근거 없는 요약 거절
+- [x] 위험 안내가 일반 AI 질문보다 먼저 표시
+- [x] 동의 철회 시 해당 외부 호출 0건
+- [x] reset 뒤 모든 store 0건
+- [x] 늦은 AI 응답·모의 음성 timer가 current revision에 반영되지 않음
 - [ ] TTS 자동 실행 없음·hidden content 미발화
-- [ ] 비동기 전환이 live region과 focus로 전달
+- [x] 비동기 전환이 live region과 focus로 전달
 
 ### 문서·정리 Gate
 
 - [x] README에 mock/actual 실행법 기록
 - [ ] `.env.example`과 실제 환경 계약 일치
 - [ ] dead route·임시 기능·폐기 실험 코드 제거
-- [ ] 실패·미완료·범위 제외 항목 기록
+- [x] 실패·미완료·범위 제외 항목 기록
 - [ ] Day 7에는 신규 기능을 추가하지 않음

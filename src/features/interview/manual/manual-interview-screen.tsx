@@ -131,6 +131,13 @@ export function ManualInterviewScreen({ service }: ManualInterviewScreenProps) {
       </main>
     );
   }
+  if (state.phase !== "answering" && state.phase !== "submitting") {
+    return (
+      <main className={styles.page}>
+        <p role="status">문진을 불러오고 있어요.</p>
+      </main>
+    );
+  }
 
   const pending = state.phase === "submitting";
   const validation = validateDraft(state.question, state.draft);

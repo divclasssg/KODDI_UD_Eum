@@ -5,6 +5,7 @@ import { HomeScreen } from "@/features/home/home-screen";
 
 describe("HomeScreen", () => {
   it("AI 전송 거부 상태에서는 수동 문진을 기본 행동으로 표시한다", async () => {
+    const navigate = vi.fn();
     render(
       <HomeScreen
         loadState={() =>
@@ -14,7 +15,7 @@ describe("HomeScreen", () => {
             aiTransfer: "declined",
           })
         }
-        navigate={vi.fn()}
+        navigate={navigate}
       />,
     );
 
@@ -23,16 +24,47 @@ describe("HomeScreen", () => {
         name: "테스트 사용자님, 안녕하세요",
       }),
     ).toBeVisible();
-    expect(
-      screen.getByRole("button", { name: /수동 문진 시작하기/ }),
-    ).toBeVisible();
+    const manualStart = screen.getByRole("button", {
+      name: /수동 문진 시작하기/,
+    });
+    expect(manualStart).toHaveAttribute("data-action-emphasis", "primary");
+    fireEvent.click(manualStart);
+    expect(navigate).toHaveBeenCalledWith("/interview/manual");
+    expect(navigate).not.toHaveBeenCalledWith("/interview/ai");
     expect(screen.getByText("외부 AI로 정보를 보내지 않아요.")).toBeVisible();
     expect(
       screen.queryByRole("button", { name: /AI 문진 시작하기/ }),
     ).not.toBeInTheDocument();
   });
 
-  it("AI 전송 동의 상태에서는 두 문진 방식을 구분한다", async () => {
+  it("AI 전송 동의 상태에서는 AI 문진을 기본 행동으로 연결한다", async () => {
+    const navigate = vi.fn();
+    render(
+      <HomeScreen
+        loadState={() =>
+          Promise.resolve({
+            status: "ready",
+            displayName: "테스트 사용자",
+            aiTransfer: "granted",
+          })
+        }
+        navigate={navigate}
+      />,
+    );
+
+    const aiStart = await screen.findByRole("button", {
+      name: "AI 문진 시작하기",
+    });
+    expect(aiStart).toBeEnabled();
+    expect(aiStart).toHaveAttribute("data-action-emphasis", "primary");
+    fireEvent.click(aiStart);
+    expect(navigate).toHaveBeenCalledWith("/interview/ai");
+    expect(
+      screen.getByRole("button", { name: "수동 문진 시작하기" }),
+    ).toBeEnabled();
+  });
+
+  it("공개 홈에 Persona와 fixture, 역할극 문구를 표시하지 않는다", async () => {
     render(
       <HomeScreen
         loadState={() =>
@@ -46,12 +78,8 @@ describe("HomeScreen", () => {
       />,
     );
 
-    expect(
-      await screen.findByRole("button", { name: /AI 문진 시작하기/ }),
-    ).toHaveAttribute("aria-disabled", "true");
-    expect(
-      screen.getByRole("button", { name: "수동 문진 시작하기" }),
-    ).toBeEnabled();
+    await screen.findByRole("heading", { name: "테스트 사용자님, 안녕하세요" });
+    expect(document.body).not.toHaveTextContent(/persona|페르소나|fixture|역할극/i);
   });
 
   it("수동 문진을 Persona 없는 실제 경로로 연결한다", async () => {
@@ -90,6 +118,28 @@ describe("HomeScreen", () => {
 
     expect(navigate).toHaveBeenNthCalledWith(1, "/profile");
     expect(navigate).toHaveBeenNthCalledWith(2, "/settings/data");
+  });
+
+  it("기록 보기에서 저장 기록 목록으로 이동한다", async () => {
+    const navigate = vi.fn();
+    render(
+      <HomeScreen
+        loadState={() =>
+          Promise.resolve({
+            status: "ready",
+            displayName: "테스트 사용자",
+            aiTransfer: "declined",
+          })
+        }
+        navigate={navigate}
+      />,
+    );
+
+    (
+      await screen.findByRole("button", { name: "기록 보기" })
+    ).click();
+
+    expect(navigate).toHaveBeenCalledWith("/records");
   });
 
   it("동의나 프로필이 없으면 온보딩으로 복구한다", async () => {

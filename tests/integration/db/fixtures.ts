@@ -12,7 +12,9 @@ import type {
   SaveFinalProgressInputV1,
   SaveSummaryInputV1,
   SaveProfileBundleInputV1,
+  SaveSafetyReviewInputV1,
 } from "@/lib/db/contracts";
+import type { QuestionSnapshotV2 } from "@/features/interview/domain/interview-draft";
 
 export const SYNTHETIC_DECIDED_AT = toUtcTimestamp(
   "2026-07-22T01:00:00.000Z",
@@ -93,6 +95,113 @@ export const SYNTHETIC_INTERVIEW_V2_INPUT: CreateInterviewInputV2 = {
     },
     updatedAt: SYNTHETIC_DECIDED_AT,
   },
+};
+
+const SYNTHETIC_AI_FIRST_QUESTION: QuestionSnapshotV2 = {
+  contractVersion: 2,
+  id: "ai-question-001",
+  slot: "chief-complaint",
+  text: "어디가 불편한지 합성 답변으로 알려 주세요.",
+  allowedModes: ["text"],
+  defaultMode: "text",
+  contracts: { text: { minLength: 1, maxLength: 1_000 } },
+};
+
+export const SYNTHETIC_AI_INTERVIEW_V2_INPUT: CreateInterviewInputV2 = {
+  id: "interview-synthetic-ai-v2-001",
+  mode: "ai",
+  createdAt: SYNTHETIC_DECIDED_AT,
+  questionSetSnapshot: {
+    contractVersion: 2,
+    id: "public-ai-intake-v2",
+    questions: [structuredClone(SYNTHETIC_AI_FIRST_QUESTION)],
+  },
+  draft: {
+    currentQuestion: {
+      id: SYNTHETIC_AI_FIRST_QUESTION.id,
+      slot: SYNTHETIC_AI_FIRST_QUESTION.slot,
+      text: SYNTHETIC_AI_FIRST_QUESTION.text,
+      selection: "single",
+      options: [],
+    },
+    input: {
+      mode: "text",
+      text: "",
+      selectedOptionIds: [],
+      commonDraft: createEmptyDraft(SYNTHETIC_AI_FIRST_QUESTION),
+    },
+    updatedAt: SYNTHETIC_DECIDED_AT,
+  },
+};
+
+export const SYNTHETIC_GENERATED_QUESTION_V2: QuestionSnapshotV2 = {
+  contractVersion: 2,
+  id: "ai-question-002",
+  slot: "duration",
+  text: "불편함은 언제부터 이어졌나요?",
+  allowedModes: ["choice", "text"],
+  defaultMode: "choice",
+  contracts: {
+    text: { minLength: 1, maxLength: 1_000 },
+    choice: {
+      selection: "single",
+      options: [
+        { id: "today", label: "오늘부터" },
+        { id: "unknown", label: "잘 모르겠어요" },
+      ],
+      unknownOptionId: "unknown",
+    },
+  },
+};
+
+export const SYNTHETIC_DEFAULT_TEXT_SWITCH_QUESTION_V2: QuestionSnapshotV2 = {
+  contractVersion: 2,
+  id: "ai-question-switch-001",
+  slot: "severity",
+  text: "불편함의 정도를 알려 주세요.",
+  allowedModes: ["text", "chip"],
+  defaultMode: "text",
+  contracts: {
+    text: { minLength: 1, maxLength: 1_000 },
+    chip: {
+      kind: "severity",
+      selection: "single",
+      options: [
+        { id: "mild", label: "가벼워요" },
+        { id: "severe", label: "심해요" },
+      ],
+    },
+  },
+};
+
+export const SYNTHETIC_SAFETY_REVIEW_INPUT: SaveSafetyReviewInputV1 = {
+  appendedMessages: [
+    {
+      id: "message-safety-question-001",
+      sequence: 0,
+      role: "assistant",
+      kind: "question",
+      text: SYNTHETIC_AI_FIRST_QUESTION.text,
+      createdAt: SYNTHETIC_DECIDED_AT,
+    },
+    {
+      id: "message-safety-answer-001",
+      sequence: 1,
+      role: "user",
+      kind: "answer",
+      text: "지금 숨쉬기가 매우 힘들어요.",
+      createdAt: toUtcTimestamp("2026-07-22T01:00:30.000Z"),
+    },
+    {
+      id: "message-safety-notice-001",
+      sequence: 2,
+      role: "system",
+      kind: "safety",
+      text: "지금은 문진보다 안전이 먼저예요. 즉시 119나 주변 사람에게 도움을 요청해 주세요.",
+      createdAt: toUtcTimestamp("2026-07-22T01:00:31.000Z"),
+    },
+  ],
+  updatedAt: toUtcTimestamp("2026-07-22T01:00:31.000Z"),
 };
 
 export const SYNTHETIC_PROGRESS_INPUT: SaveProgressInputV1 = {

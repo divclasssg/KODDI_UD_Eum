@@ -52,7 +52,7 @@ def test_runtime_constants_match_the_approved_cost_envelope() -> None:
     assert GPU_TIMEOUT == 60
     assert QUESTION_MAX_NEW_TOKENS == 64
     assert SUMMARY_MAX_NEW_TOKENS == 64
-    assert WEB_TIMEOUT == 85
+    assert WEB_TIMEOUT == 180
     assert MODEL_QUANTIZATION_MODE == "8bit"
     assert MODEL_RESIDUAL_DTYPE == "float32"
     assert MODEL_IMAGE_PACKAGES == (

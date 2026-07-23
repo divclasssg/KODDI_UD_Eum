@@ -29,12 +29,53 @@ def valid_request() -> dict[str, object]:
     }
 
 
+def valid_public_request() -> dict[str, object]:
+    return {
+        "kind": "question",
+        "context": {
+            "version": "2",
+            "interviewId": "ai-public-001",
+            "filledSlots": {"chief-complaint": "두통"},
+            "recentTurns": [],
+        },
+        "session_hash": "a" * 64,
+        "ip_hash": "b" * 64,
+    }
+
+
 def test_accepts_versioned_question_request() -> None:
     request = InferenceRequest.model_validate(valid_request())
 
     assert request.kind == "question"
     assert request.context.persona_id == "persona-kim"
     assert request.context.current_slot == "duration"
+
+
+def test_accepts_persona_free_public_v2_request() -> None:
+    request = InferenceRequest.model_validate(valid_public_request())
+
+    assert request.context.version == "2"
+    assert request.context.interview_id == "ai-public-001"
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("personaId", "persona-kim"),
+        ("displayName", "김하나"),
+        ("birthDate", "1990-01-01"),
+    ],
+)
+def test_rejects_profile_fields_from_public_v2_request(
+    field: str, value: object
+) -> None:
+    payload = valid_public_request()
+    context = payload["context"]
+    assert isinstance(context, dict)
+    context[field] = value
+
+    with pytest.raises(ValidationError):
+        InferenceRequest.model_validate(payload)
 
 
 @pytest.mark.parametrize(

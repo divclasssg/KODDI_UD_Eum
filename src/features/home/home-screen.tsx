@@ -71,21 +71,42 @@ export function HomeScreen({ loadState, navigate }: HomeScreenProps) {
         {state.aiTransfer === "declined" ? (
           <div className={styles.actionGroup}>
             <p>외부 AI로 정보를 보내지 않아요.</p>
-            <button type="button" onClick={() => navigate("/interview/manual")}>
+            <button
+              className={styles.primary}
+              data-action-emphasis="primary"
+              type="button"
+              onClick={() => navigate("/interview/manual")}
+            >
               수동 문진 시작하기
             </button>
           </div>
         ) : (
           <div className={styles.actionGroup}>
-            <button type="button" aria-disabled="true" disabled>
-              AI 문진 시작하기 · 준비 중
+            <button
+              className={styles.primary}
+              data-action-emphasis="primary"
+              type="button"
+              onClick={() => navigate("/interview/ai")}
+            >
+              AI 문진 시작하기
             </button>
             <button type="button" onClick={() => navigate("/interview/manual")}>
               수동 문진 시작하기
             </button>
           </div>
         )}
-        <p className={styles.notice}>수동 문진은 이 브라우저 안에서만 저장돼요. AI 문진은 준비 중이에요.</p>
+        <button
+          className={styles.recordsAction}
+          type="button"
+          onClick={() => navigate("/records")}
+        >
+          기록 보기
+        </button>
+        <p className={styles.notice}>
+          {state.aiTransfer === "declined"
+            ? "수동 문진은 외부 AI로 정보를 보내지 않고 이 브라우저에 저장돼요."
+            : "문진 내용은 이 브라우저에 저장돼요. AI 문진은 동의한 정보만 안전하게 전송해요."}
+        </p>
         <div className={styles.managementGroup}>
           <button type="button" onClick={() => navigate("/profile")}>
             프로필 수정

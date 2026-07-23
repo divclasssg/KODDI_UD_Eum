@@ -1,6 +1,7 @@
 import type {
   ConsentRecordV1,
   CreateInterviewInput,
+  CreateInterviewInputV2,
   InterviewAggregateV1,
   InterviewDraftRecord,
   InterviewDraftInputV1,
@@ -15,12 +16,19 @@ import type {
   ProfileRecordV1,
   RevisionToken,
   SaveFinalProgressInput,
+  SaveGeneratedQuestionInputV2,
   SaveProgressInput,
+  SaveSafetyReviewInputV1,
   SaveSummaryInputV1,
+  SafetyStopActionV1,
   SummaryRecordV1,
   UpgradeLegacyDraftInputV2,
   UtcTimestamp,
 } from "./contracts";
+import {
+  createEmptyDraft,
+  type QuestionSnapshotV2,
+} from "@/features/interview/domain/interview-draft";
 import { requestResult, transactionComplete } from "./database";
 import {
   ConsentRequiredError,
@@ -32,6 +40,7 @@ import {
 
 export type InterviewRepository = {
   create(input: CreateInterviewInput): Promise<InterviewAggregateV1>;
+  findOrCreateAi(input: CreateInterviewInputV2): Promise<InterviewAggregateV1>;
   findLatestInProgress(
     mode: "ai" | "manual",
   ): Promise<InterviewAggregateV1 | undefined>;
@@ -44,13 +53,28 @@ export type InterviewRepository = {
     token: RevisionToken,
     input: PersistDraftInputV2,
   ): Promise<InterviewAggregateV1>;
+  saveGeneratedQuestion(
+    token: RevisionToken,
+    input: SaveGeneratedQuestionInputV2,
+    signal?: AbortSignal,
+  ): Promise<InterviewAggregateV1>;
+  saveSafetyReview(
+    token: RevisionToken,
+    input: SaveSafetyReviewInputV1,
+  ): Promise<InterviewAggregateV1>;
+  confirmSafetyStop(
+    token: RevisionToken,
+    action: SafetyStopActionV1,
+  ): Promise<InterviewAggregateV1>;
   saveProgress(
     token: RevisionToken,
     input: SaveProgressInput,
+    signal?: AbortSignal,
   ): Promise<InterviewAggregateV1>;
   saveSummary(
     token: RevisionToken,
     input: SaveSummaryInputV1,
+    signal?: AbortSignal,
   ): Promise<InterviewAggregateV1>;
   saveFinalProgress(
     token: RevisionToken,
@@ -114,6 +138,163 @@ function validateAggregate(aggregate: InterviewAggregateV1): void {
       (message, index) => message.sequence !== index,
     )
   ) {
+    throw new DatabaseCorruptionError();
+  }
+}
+
+const SAFETY_STOP_ACTIONS = new Set<SafetyStopActionV1>([
+  "call-119",
+  "show-to-bystander",
+  "view-summary",
+]);
+
+function abortTransaction(transaction: IDBTransaction): void {
+  try {
+    transaction.abort();
+  } catch {
+    return;
+  }
+}
+
+function assertNotAborted(signal?: AbortSignal): void {
+  if (signal?.aborted) {
+    throw new DOMException("interview-operation-aborted", "AbortError");
+  }
+}
+
+function registerTransactionAbort(
+  transaction: IDBTransaction,
+  signal?: AbortSignal,
+): () => void {
+  if (!signal) return () => undefined;
+  const abort = () => abortTransaction(transaction);
+  signal.addEventListener("abort", abort, { once: true });
+  return () => signal.removeEventListener("abort", abort);
+}
+
+function assertExactSafetyMessages(
+  messages: InterviewMessageRecordV1[] | SaveSafetyReviewInputV1["appendedMessages"],
+  firstSequence: number,
+  questionText: string,
+): void {
+  const [question, answer, safety] = messages;
+  if (
+    messages.length !== 3 ||
+    question.sequence !== firstSequence ||
+    question.role !== "assistant" ||
+    question.kind !== "question" ||
+    question.text !== questionText ||
+    answer.sequence !== firstSequence + 1 ||
+    answer.role !== "user" ||
+    answer.kind !== "answer" ||
+    safety.sequence !== firstSequence + 2 ||
+    safety.role !== "system" ||
+    safety.kind !== "safety"
+  ) {
+    throw new DatabaseCorruptionError();
+  }
+}
+
+function sameStringArray(left: string[], right: string[]): boolean {
+  return left.length === right.length &&
+    left.every((value, index) => value === right[index]);
+}
+
+function sameOptions(
+  left: { id: string; label: string }[],
+  right: { id: string; label: string }[],
+): boolean {
+  return left.length === right.length && left.every((option, index) =>
+    option.id === right[index]?.id && option.label === right[index]?.label
+  );
+}
+
+function hasValidQuestionContract(question: QuestionSnapshotV2): boolean {
+  return question.contractVersion === 2 &&
+    question.allowedModes.includes(question.defaultMode) &&
+    question.allowedModes.every((mode) => question.contracts[mode] !== undefined);
+}
+
+function currentQuestionMatchesSnapshot(
+  draft: InterviewDraftRecordV2,
+  question: QuestionSnapshotV2,
+): boolean {
+  const commonDraft = draft.input.commonDraft;
+  const normalizedMode = commonDraft.activeMode === "chip"
+    ? "choice"
+    : commonDraft.activeMode;
+  const selectedOptionIds = commonDraft.activeMode === "chip"
+    ? commonDraft.values.chip.selectedOptionIds
+    : commonDraft.values.choice.selectedOptionIds;
+  const defaultOptionContract = question.defaultMode === "chip"
+    ? question.contracts.chip
+    : question.defaultMode === "choice"
+      ? question.contracts.choice
+      : undefined;
+  const matchesOptionContract = (contract: NonNullable<
+    typeof question.contracts.choice
+  >) => draft.currentQuestion.selection === contract.selection &&
+    sameOptions(draft.currentQuestion.options, contract.options);
+  const currentOptionsMatch = defaultOptionContract
+    ? matchesOptionContract(defaultOptionContract)
+    : (
+      draft.currentQuestion.options.length === 0 &&
+      draft.currentQuestion.selection === "single"
+    );
+  return draft.currentQuestion.id === question.id &&
+    draft.currentQuestion.slot === question.slot &&
+    draft.currentQuestion.text === question.text &&
+    commonDraft.contractVersion === 2 &&
+    commonDraft.questionId === question.id &&
+    sameStringArray(commonDraft.allowedModes, question.allowedModes) &&
+    commonDraft.allowedModes.includes(commonDraft.activeMode) &&
+    draft.input.mode === normalizedMode &&
+    draft.input.text === commonDraft.values.text.value &&
+    sameStringArray(draft.input.selectedOptionIds, selectedOptionIds) &&
+    currentOptionsMatch;
+}
+
+function assertAiV2AggregateIntegrity(
+  aggregate: InterviewAggregateV1,
+): asserts aggregate is InterviewAggregateV1 & {
+  interview: InterviewRecordV2;
+  draft: InterviewDraftRecordV2;
+} {
+  validateAggregate(aggregate);
+  const { interview, draft, messages, summary } = aggregate;
+  if (
+    interview.schemaVersion !== 2 ||
+    interview.mode !== "ai" ||
+    interview.questionSetSnapshot.contractVersion !== 2 ||
+    !draft ||
+    draft.schemaVersion !== 2 ||
+    draft.interviewId !== interview.id ||
+    draft.revision !== interview.revision ||
+    messages.some((message) =>
+      message.schemaVersion !== 1 || message.interviewId !== interview.id
+    ) ||
+    (summary !== undefined && (
+      summary.schemaVersion !== 1 ||
+      summary.interviewId !== interview.id ||
+      summary.revision !== interview.revision
+    ))
+  ) {
+    throw new DatabaseCorruptionError();
+  }
+  const questionIds = new Set<string>();
+  if (interview.questionSetSnapshot.questions.some((question) => {
+    if (!hasValidQuestionContract(question) || questionIds.has(question.id)) {
+      return true;
+    }
+    questionIds.add(question.id);
+    return false;
+  })) {
+    throw new DatabaseCorruptionError();
+  }
+  const currentQuestion = interview.questionSetSnapshot.questions.find(
+    ({ id }) => id === draft.currentQuestion.id,
+  );
+  if (!currentQuestion || !currentQuestionMatchesSnapshot(draft, currentQuestion)) {
     throw new DatabaseCorruptionError();
   }
 }
@@ -216,6 +397,54 @@ export function createInterviewRepository(
       transaction.objectStore("interviews").add(interview);
       transaction.objectStore("interviewDrafts").add(draft);
       await transactionComplete(transaction);
+      return { interview, draft, messages: [] };
+    },
+    async findOrCreateAi(input) {
+      if (input.mode !== "ai") throw new DatabaseCorruptionError();
+      const transaction = database.transaction(
+        ["consents", "interviews", "interviewDrafts", "messages", "summaries"],
+        "readwrite",
+      );
+      const completion = transactionComplete(transaction);
+      await requireConsent(transaction);
+      const index = transaction.objectStore("interviews").index("byStatusUpdatedAt");
+      const [drafts, reviews] = await Promise.all([
+        requestResult<InterviewRecord[]>(
+          index.getAll(IDBKeyRange.bound(["draft", ""], ["draft", "\uffff"])),
+        ),
+        requestResult<InterviewRecord[]>(
+          index.getAll(IDBKeyRange.bound(["review", ""], ["review", "\uffff"])),
+        ),
+      ]);
+      const latest = [...drafts, ...reviews]
+        .filter((interview) => interview.mode === "ai")
+        .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))[0];
+      if (latest) {
+        const aggregate = await readAggregate(transaction, latest.id);
+        await completion;
+        if (!aggregate) throw new InterviewNotFoundError();
+        return aggregate;
+      }
+
+      const interview: InterviewRecordV2 = {
+        id: input.id,
+        schemaVersion: 2,
+        revision: 1,
+        status: "draft",
+        mode: "ai",
+        createdAt: input.createdAt,
+        updatedAt: input.draft.updatedAt,
+        questionSetSnapshot: structuredClone(input.questionSetSnapshot),
+      };
+      const draft: InterviewDraftRecordV2 = {
+        interviewId: input.id,
+        schemaVersion: 2,
+        revision: 1,
+        ...structuredClone(input.draft),
+      };
+      transaction.objectStore("interviews").add(interview);
+      transaction.objectStore("interviewDrafts").add(draft);
+      await completion;
       return { interview, draft, messages: [] };
     },
     async findLatestInProgress(mode) {
@@ -368,88 +597,239 @@ export function createInterviewRepository(
       if (!aggregate) throw new InterviewNotFoundError();
       return aggregate;
     },
-    async saveProgress(token, input) {
+    async saveGeneratedQuestion(token, input, signal) {
+      const inputSnapshot = structuredClone(input);
+      assertNotAborted(signal);
       assertRuntimeGeneration(token.runtimeGeneration);
       const transaction = database.transaction(
-        [
-          "consents",
-          "interviews",
-          "interviewDrafts",
-          "messages",
-          "summaries",
-        ],
+        ["consents", "interviews", "interviewDrafts", "messages", "summaries"],
         "readwrite",
       );
-      await requireConsent(transaction);
-      const interview = await requestResult<InterviewRecord | undefined>(
-        transaction.objectStore("interviews").get(token.interviewId),
-      );
-      assertMutableInterview(interview, token);
-      const existingMessages = await requestResult<InterviewMessageRecordV1[]>(
-        transaction
-          .objectStore("messages")
-          .index("byInterviewId")
-          .getAll(token.interviewId),
-      );
-      if (
-        input.appendedMessages.some(
-          (message, index) =>
-            message.sequence !== existingMessages.length + index,
-        )
-      ) {
-        transaction.abort();
-        throw new DatabaseCorruptionError();
-      }
-      const nextRevision = interview.revision + 1;
-      const nextInterview: InterviewRecord = {
-        ...interview,
-        revision: nextRevision,
-        status: "draft",
-        updatedAt: input.draft.updatedAt,
-      };
-      let nextDraft: InterviewDraftRecord;
-      if (interview.schemaVersion === 2) {
-        if (!("commonDraft" in input.draft.input)) {
-          transaction.abort();
+      const completion = transactionComplete(transaction);
+      const unregisterAbort = registerTransactionAbort(transaction, signal);
+      let prospectiveAggregate: InterviewAggregateV1 | undefined;
+      try {
+        await requireConsent(transaction);
+        const aggregate = await readAggregate(transaction, token.interviewId);
+        assertMutableInterview(aggregate?.interview, token);
+        if (!aggregate) throw new InterviewNotFoundError();
+        assertAiV2AggregateIntegrity(aggregate);
+        const { interview } = aggregate;
+        if (
+          interview.status !== "draft" ||
+          aggregate.summary !== undefined ||
+          inputSnapshot.question.contractVersion !== 2 ||
+          interview.questionSetSnapshot.questions.some(
+            ({ id }) => id === inputSnapshot.question.id,
+          )
+        ) {
           throw new DatabaseCorruptionError();
         }
-        const draftInput = input.draft as InterviewDraftInputV2;
-        nextDraft = {
+        let commonDraft;
+        try {
+          commonDraft = createEmptyDraft(inputSnapshot.question);
+        } catch {
+          throw new DatabaseCorruptionError();
+        }
+        if (!hasValidQuestionContract(inputSnapshot.question)) {
+          throw new DatabaseCorruptionError();
+        }
+        const optionContract = inputSnapshot.question.defaultMode === "chip"
+          ? inputSnapshot.question.contracts.chip
+          : inputSnapshot.question.defaultMode === "choice"
+            ? inputSnapshot.question.contracts.choice
+            : undefined;
+        const nextRevision = interview.revision + 1;
+        const nextInterview: InterviewRecordV2 = {
+          ...interview,
+          revision: nextRevision,
+          status: "draft",
+          updatedAt: inputSnapshot.updatedAt,
+          questionSetSnapshot: {
+            ...structuredClone(interview.questionSetSnapshot),
+            questions: [
+              ...structuredClone(interview.questionSetSnapshot.questions),
+              structuredClone(inputSnapshot.question),
+            ],
+          },
+        };
+        const nextDraft: InterviewDraftRecordV2 = {
           interviewId: interview.id,
           schemaVersion: 2,
           revision: nextRevision,
-          ...draftInput,
+          currentQuestion: {
+            id: inputSnapshot.question.id,
+            slot: inputSnapshot.question.slot,
+            text: inputSnapshot.question.text,
+            selection: optionContract?.selection ?? "single",
+            options: structuredClone(optionContract?.options ?? []),
+          },
+          input: {
+            mode: inputSnapshot.question.defaultMode === "chip"
+              ? "choice"
+              : inputSnapshot.question.defaultMode,
+            text: "",
+            selectedOptionIds: [],
+            commonDraft,
+          },
+          updatedAt: inputSnapshot.updatedAt,
         };
-      } else {
-        if ("commonDraft" in input.draft.input) {
-          transaction.abort();
+        prospectiveAggregate = {
+          interview: nextInterview,
+          draft: nextDraft,
+          messages: aggregate.messages,
+          summary: aggregate.summary,
+        };
+        assertAiV2AggregateIntegrity(prospectiveAggregate);
+        options.beforeFinalPut?.("interviews");
+        assertNotAborted(signal);
+        assertRuntimeGeneration(token.runtimeGeneration);
+        transaction.objectStore("interviews").put(nextInterview);
+        options.beforeFinalPut?.("interviewDrafts");
+        assertNotAborted(signal);
+        assertRuntimeGeneration(token.runtimeGeneration);
+        transaction.objectStore("interviewDrafts").put(nextDraft);
+      } catch (error) {
+        abortTransaction(transaction);
+        await completion.catch(() => undefined);
+        unregisterAbort();
+        throw error;
+      }
+      try {
+        await completion;
+        if (!prospectiveAggregate) throw new InterviewNotFoundError();
+        return prospectiveAggregate;
+      } finally {
+        unregisterAbort();
+      }
+    },
+    async saveSafetyReview(token, input) {
+      const inputSnapshot = structuredClone(input);
+      assertRuntimeGeneration(token.runtimeGeneration);
+      const transaction = database.transaction(
+        ["consents", "interviews", "interviewDrafts", "messages", "summaries"],
+        "readwrite",
+      );
+      const completion = transactionComplete(transaction);
+      let prospectiveAggregate: InterviewAggregateV1 | undefined;
+      try {
+        await requireConsent(transaction);
+        const aggregate = await readAggregate(transaction, token.interviewId);
+        assertMutableInterview(aggregate?.interview, token);
+        if (!aggregate) throw new InterviewNotFoundError();
+        assertAiV2AggregateIntegrity(aggregate);
+        const { interview, draft } = aggregate;
+        if (
+          interview.status !== "draft" ||
+          aggregate.summary !== undefined
+        ) {
           throw new DatabaseCorruptionError();
         }
-        const draftInput = input.draft as InterviewDraftInputV1;
-        nextDraft = {
-          interviewId: interview.id,
-          schemaVersion: 1,
+        assertExactSafetyMessages(
+          inputSnapshot.appendedMessages,
+          aggregate.messages.length,
+          draft.currentQuestion.text,
+        );
+        const nextRevision = interview.revision + 1;
+        const nextInterview: InterviewRecordV2 = {
+          ...interview,
           revision: nextRevision,
-          ...draftInput,
+          status: "draft",
+          updatedAt: inputSnapshot.updatedAt,
         };
-      }
-      transaction.objectStore("interviews").put(nextInterview);
-      transaction.objectStore("interviewDrafts").put(nextDraft);
-      transaction.objectStore("summaries").delete(interview.id);
-      for (const message of input.appendedMessages) {
-        const record: InterviewMessageRecordV1 = {
+        const nextDraft: InterviewDraftRecordV2 = {
+          ...draft,
+          revision: nextRevision,
+          updatedAt: inputSnapshot.updatedAt,
+        };
+        const appendedRecords = inputSnapshot.appendedMessages.map((message) => ({
           interviewId: interview.id,
-          schemaVersion: 1,
+          schemaVersion: 1 as const,
           ...message,
+        }));
+        prospectiveAggregate = {
+          interview: nextInterview,
+          draft: nextDraft,
+          messages: [...aggregate.messages, ...appendedRecords],
+          summary: aggregate.summary,
         };
-        transaction.objectStore("messages").add(record);
+        assertAiV2AggregateIntegrity(prospectiveAggregate);
+        options.beforeFinalPut?.("interviews");
+        assertRuntimeGeneration(token.runtimeGeneration);
+        transaction.objectStore("interviews").put(nextInterview);
+        options.beforeFinalPut?.("interviewDrafts");
+        transaction.objectStore("interviewDrafts").put(nextDraft);
+        for (const record of appendedRecords) {
+          options.beforeFinalPut?.("messages");
+          transaction.objectStore("messages").add(record);
+        }
+      } catch (error) {
+        abortTransaction(transaction);
+        await completion.catch(() => undefined);
+        throw error;
       }
-      await transactionComplete(transaction);
-      const aggregate = await loadInProgress(interview.id);
-      if (!aggregate) throw new InterviewNotFoundError();
-      return aggregate;
+      await completion;
+      if (!prospectiveAggregate) throw new InterviewNotFoundError();
+      return prospectiveAggregate;
     },
-    async saveSummary(token, input) {
+    async confirmSafetyStop(token, action) {
+      assertRuntimeGeneration(token.runtimeGeneration);
+      const transaction = database.transaction(
+        ["consents", "interviews", "interviewDrafts", "messages", "summaries"],
+        "readwrite",
+      );
+      const completion = transactionComplete(transaction);
+      let prospectiveAggregate: InterviewAggregateV1 | undefined;
+      try {
+        await requireConsent(transaction);
+        const aggregate = await readAggregate(transaction, token.interviewId);
+        assertMutableInterview(aggregate?.interview, token);
+        if (!aggregate) throw new InterviewNotFoundError();
+        assertAiV2AggregateIntegrity(aggregate);
+        const { interview, draft, messages } = aggregate;
+        if (
+          interview.status !== "draft" ||
+          aggregate.summary !== undefined ||
+          !SAFETY_STOP_ACTIONS.has(action) ||
+          messages.length < 3
+        ) {
+          throw new DatabaseCorruptionError();
+        }
+        assertExactSafetyMessages(
+          messages.slice(-3),
+          messages.length - 3,
+          draft.currentQuestion.text,
+        );
+        const stoppedInterview: InterviewRecordV2 = {
+          ...interview,
+          revision: interview.revision + 1,
+          status: "safety-stopped",
+          updatedAt: now(),
+          safetyStopAction: action,
+        };
+        prospectiveAggregate = {
+          interview: stoppedInterview,
+          draft: undefined,
+          messages,
+          summary: undefined,
+        };
+        validateAggregate(prospectiveAggregate);
+        options.beforeFinalPut?.("interviews");
+        assertRuntimeGeneration(token.runtimeGeneration);
+        transaction.objectStore("interviews").put(stoppedInterview);
+        options.beforeFinalPut?.("interviewDrafts");
+        transaction.objectStore("interviewDrafts").delete(interview.id);
+      } catch (error) {
+        abortTransaction(transaction);
+        await completion.catch(() => undefined);
+        throw error;
+      }
+      await completion;
+      if (!prospectiveAggregate) throw new InterviewNotFoundError();
+      return prospectiveAggregate;
+    },
+    async saveProgress(token, input, signal) {
+      assertNotAborted(signal);
       assertRuntimeGeneration(token.runtimeGeneration);
       const transaction = database.transaction(
         [
@@ -461,58 +841,176 @@ export function createInterviewRepository(
         ],
         "readwrite",
       );
-      await requireConsent(transaction);
-      const interview = await requestResult<InterviewRecord | undefined>(
-        transaction.objectStore("interviews").get(token.interviewId),
-      );
-      assertMutableInterview(interview, token);
-      const draft = await requestResult<InterviewDraftRecord | undefined>(
-        transaction.objectStore("interviewDrafts").get(interview.id),
-      );
-      if (!draft || draft.revision !== interview.revision) {
-        transaction.abort();
-        throw new DatabaseCorruptionError();
+      const completion = transactionComplete(transaction);
+      const unregisterAbort = registerTransactionAbort(transaction, signal);
+      try {
+        await requireConsent(transaction);
+        const interview = await requestResult<InterviewRecord | undefined>(
+          transaction.objectStore("interviews").get(token.interviewId),
+        );
+        assertMutableInterview(interview, token);
+        const existingMessages = await requestResult<InterviewMessageRecordV1[]>(
+          transaction
+            .objectStore("messages")
+            .index("byInterviewId")
+            .getAll(token.interviewId),
+        );
+        if (
+          input.appendedMessages.some(
+            (message, index) =>
+              message.sequence !== existingMessages.length + index,
+          )
+        ) {
+          throw new DatabaseCorruptionError();
+        }
+        const nextRevision = interview.revision + 1;
+        const nextInterview: InterviewRecord = {
+          ...interview,
+          revision: nextRevision,
+          status: "draft",
+          updatedAt: input.draft.updatedAt,
+        };
+        let nextDraft: InterviewDraftRecord;
+        if (interview.schemaVersion === 2) {
+          if (!("commonDraft" in input.draft.input)) {
+            throw new DatabaseCorruptionError();
+          }
+          const draftInput = input.draft as InterviewDraftInputV2;
+          nextDraft = {
+            interviewId: interview.id,
+            schemaVersion: 2,
+            revision: nextRevision,
+            ...draftInput,
+          };
+        } else {
+          if ("commonDraft" in input.draft.input) {
+            throw new DatabaseCorruptionError();
+          }
+          const draftInput = input.draft as InterviewDraftInputV1;
+          nextDraft = {
+            interviewId: interview.id,
+            schemaVersion: 1,
+            revision: nextRevision,
+            ...draftInput,
+          };
+        }
+        options.beforeFinalPut?.("interviews");
+        assertNotAborted(signal);
+        assertRuntimeGeneration(token.runtimeGeneration);
+        transaction.objectStore("interviews").put(nextInterview);
+        options.beforeFinalPut?.("interviewDrafts");
+        assertNotAborted(signal);
+        assertRuntimeGeneration(token.runtimeGeneration);
+        transaction.objectStore("interviewDrafts").put(nextDraft);
+        options.beforeFinalPut?.("summaries");
+        assertNotAborted(signal);
+        assertRuntimeGeneration(token.runtimeGeneration);
+        transaction.objectStore("summaries").delete(interview.id);
+        for (const message of input.appendedMessages) {
+          options.beforeFinalPut?.("messages");
+          assertNotAborted(signal);
+          assertRuntimeGeneration(token.runtimeGeneration);
+          const record: InterviewMessageRecordV1 = {
+            interviewId: interview.id,
+            schemaVersion: 1,
+            ...message,
+          };
+          transaction.objectStore("messages").add(record);
+        }
+        await completion;
+      } catch (error) {
+        abortTransaction(transaction);
+        await completion.catch(() => undefined);
+        throw error;
+      } finally {
+        unregisterAbort();
       }
-      const messages = await requestResult<InterviewMessageRecordV1[]>(
-        transaction
-          .objectStore("messages")
-          .index("byInterviewId")
-          .getAll(interview.id),
+      const aggregate = await loadInProgress(token.interviewId);
+      if (!aggregate) throw new InterviewNotFoundError();
+      return aggregate;
+    },
+    async saveSummary(token, input, signal) {
+      assertNotAborted(signal);
+      assertRuntimeGeneration(token.runtimeGeneration);
+      const transaction = database.transaction(
+        [
+          "consents",
+          "interviews",
+          "interviewDrafts",
+          "messages",
+          "summaries",
+        ],
+        "readwrite",
       );
-      const messageIds = new Set(messages.map(({ id }) => id));
-      const summaryItems = [
-        ...input.content.subjective,
-        ...input.content.objective,
-        ...input.content.verificationNeeded,
-      ];
-      if (
-        summaryItems.some(({ evidenceMessageIds }) =>
-          evidenceMessageIds.some((id) => !messageIds.has(id)),
-        )
-      ) {
-        transaction.abort();
-        throw new DatabaseCorruptionError();
+      const completion = transactionComplete(transaction);
+      const unregisterAbort = registerTransactionAbort(transaction, signal);
+      try {
+        await requireConsent(transaction);
+        const interview = await requestResult<InterviewRecord | undefined>(
+          transaction.objectStore("interviews").get(token.interviewId),
+        );
+        assertMutableInterview(interview, token);
+        const draft = await requestResult<InterviewDraftRecord | undefined>(
+          transaction.objectStore("interviewDrafts").get(interview.id),
+        );
+        if (!draft || draft.revision !== interview.revision) {
+          throw new DatabaseCorruptionError();
+        }
+        const messages = await requestResult<InterviewMessageRecordV1[]>(
+          transaction
+            .objectStore("messages")
+            .index("byInterviewId")
+            .getAll(interview.id),
+        );
+        const messageIds = new Set(messages.map(({ id }) => id));
+        const summaryItems = [
+          ...input.content.subjective,
+          ...input.content.objective,
+          ...input.content.verificationNeeded,
+        ];
+        if (
+          summaryItems.some(({ evidenceMessageIds }) =>
+            evidenceMessageIds.some((id) => !messageIds.has(id)),
+          )
+        ) {
+          throw new DatabaseCorruptionError();
+        }
+        const nextRevision = interview.revision + 1;
+        const nextInterview: InterviewRecord = {
+          ...interview,
+          revision: nextRevision,
+          status: "review",
+          updatedAt: input.updatedAt,
+        };
+        const nextDraft = { ...draft, revision: nextRevision };
+        const summary: SummaryRecordV1 = {
+          interviewId: interview.id,
+          schemaVersion: 1,
+          revision: nextRevision,
+          status: "review",
+          ...input,
+        };
+        options.beforeFinalPut?.("interviews");
+        assertNotAborted(signal);
+        assertRuntimeGeneration(token.runtimeGeneration);
+        transaction.objectStore("interviews").put(nextInterview);
+        options.beforeFinalPut?.("interviewDrafts");
+        assertNotAborted(signal);
+        assertRuntimeGeneration(token.runtimeGeneration);
+        transaction.objectStore("interviewDrafts").put(nextDraft);
+        options.beforeFinalPut?.("summaries");
+        assertNotAborted(signal);
+        assertRuntimeGeneration(token.runtimeGeneration);
+        transaction.objectStore("summaries").put(summary);
+        await completion;
+      } catch (error) {
+        abortTransaction(transaction);
+        await completion.catch(() => undefined);
+        throw error;
+      } finally {
+        unregisterAbort();
       }
-      const nextRevision = interview.revision + 1;
-      const nextInterview: InterviewRecord = {
-        ...interview,
-        revision: nextRevision,
-        status: "review",
-        updatedAt: input.updatedAt,
-      };
-      const nextDraft = { ...draft, revision: nextRevision };
-      const summary: SummaryRecordV1 = {
-        interviewId: interview.id,
-        schemaVersion: 1,
-        revision: nextRevision,
-        status: "review",
-        ...input,
-      };
-      transaction.objectStore("interviews").put(nextInterview);
-      transaction.objectStore("interviewDrafts").put(nextDraft);
-      transaction.objectStore("summaries").put(summary);
-      await transactionComplete(transaction);
-      const aggregate = await loadInProgress(interview.id);
+      const aggregate = await loadInProgress(token.interviewId);
       if (!aggregate) throw new InterviewNotFoundError();
       return aggregate;
     },

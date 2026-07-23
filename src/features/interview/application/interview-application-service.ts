@@ -2,6 +2,7 @@ import type {
   CommonDraftV2,
   ValidatedAnswerV2,
 } from "../domain/interview-draft";
+import type { AiTurnSnapshot } from "../ai/ai-interview-service";
 import {
   transitionInterview,
   type InterviewDomainState,
@@ -23,6 +24,20 @@ export type InterviewApplicationRepositoryPort = {
     answer: ValidatedAnswerV2;
   }): Promise<SessionSnapshot>;
   complete(input: { token: OperationToken }): Promise<void>;
+  requestAiQuestion?(input: {
+    token: OperationToken;
+    history: AiTurnSnapshot[];
+  }): Promise<SessionSnapshot>;
+  requestAiSummary?(input: {
+    token: OperationToken;
+    history: AiTurnSnapshot[];
+  }): Promise<Extract<SessionSnapshot, { phase: "review" }>>;
+  acknowledgeSafety?(input: {
+    token: OperationToken;
+    action: "call-119" | "show-to-bystander" | "view-summary";
+  }): Promise<void>;
+  reset?(): void;
+  dispose?(): void;
 };
 
 type InterviewApplicationServiceDependencies = {
@@ -38,7 +53,11 @@ export type InterviewApplicationService = {
   subscribe(listener: (state: InterviewDomainState) => void): () => void;
   editDraft(draft: CommonDraftV2): void;
   submit(): void;
+  retryAi(): void;
   complete(): void;
+  acknowledgeSafety(
+    action: "call-119" | "show-to-bystander" | "view-summary",
+  ): void;
   navigate(path: "/home"): void;
   dispose(): void;
   whenIdle(): Promise<void>;
@@ -82,7 +101,10 @@ export function createInterviewApplicationService({
       state.phase === "answering" ||
       state.phase === "submitting" ||
       state.phase === "review" ||
-      state.phase === "completing"
+      state.phase === "completing" ||
+      state.phase === "waiting-for-question" ||
+      state.phase === "waiting-for-summary" ||
+      state.phase === "safety-review"
         ? state.interview
         : undefined;
     return {
@@ -94,9 +116,28 @@ export function createInterviewApplicationService({
     };
   };
 
+  const createContinuationToken = (snapshot: SessionSnapshot) => {
+    if (
+      snapshot.phase !== "waiting-for-question" &&
+      snapshot.phase !== "waiting-for-summary"
+    ) {
+      return undefined;
+    }
+    return {
+      sessionId,
+      requestId: randomId(),
+      interviewId: snapshot.interview.interviewId,
+      baseRevision: snapshot.interview.revision,
+      runtimeGeneration: snapshot.interview.runtimeGeneration,
+    } satisfies OperationToken;
+  };
+
   const track = (operation: Promise<void>) => {
     pending.add(operation);
-    void operation.finally(() => pending.delete(operation));
+    void operation.then(
+      () => pending.delete(operation),
+      () => pending.delete(operation),
+    );
   };
 
   const dispatch = (event: Parameters<typeof transitionInterview>[1]) => {
@@ -108,6 +149,7 @@ export function createInterviewApplicationService({
 
   const acceptsRuntimeGeneration = (token: OperationToken): boolean => {
     if (captureRuntimeGeneration() === token.runtimeGeneration) return true;
+    repository.reset?.();
     dispatch({ type: "RESET_OBSERVED" });
     return false;
   };
@@ -134,7 +176,12 @@ export function createInterviewApplicationService({
         .loadOrCreateManual({ runtimeGeneration: effect.token.runtimeGeneration })
         .then((snapshot) => {
           if (!acceptsRuntimeGeneration(effect.token)) return;
-          dispatch({ type: "LOAD_SUCCEEDED", token: effect.token, snapshot });
+          dispatch({
+            type: "LOAD_SUCCEEDED",
+            token: effect.token,
+            snapshot,
+            continuationToken: createContinuationToken(snapshot),
+          });
         })
         .catch((error) => {
           if (!acceptsRuntimeGeneration(effect.token)) return;
@@ -169,7 +216,12 @@ export function createInterviewApplicationService({
         .submitAnswer({ token: effect.token, answer: effect.answer })
         .then((snapshot) => {
           if (!acceptsRuntimeGeneration(effect.token)) return;
-          dispatch({ type: "SUBMIT_SUCCEEDED", token: effect.token, snapshot });
+          dispatch({
+            type: "SUBMIT_SUCCEEDED",
+            token: effect.token,
+            snapshot,
+            continuationToken: createContinuationToken(snapshot),
+          });
         })
         .catch((error) => {
           if (!acceptsRuntimeGeneration(effect.token)) return;
@@ -179,6 +231,86 @@ export function createInterviewApplicationService({
             errorCode: errorCode(error),
           });
         });
+    } else if (effect.kind === "request-ai-question") {
+      if (!repository.requestAiQuestion) {
+        operation = Promise.resolve().then(() => {
+          dispatch({
+            type: "AI_QUESTION_FAILED",
+            token: effect.token,
+            errorCode: errorCode(new Error("ai-question-port-missing")),
+          });
+        });
+      } else {
+        operation = repository
+          .requestAiQuestion({ token: effect.token, history: effect.history })
+          .then((snapshot) => {
+            if (!acceptsRuntimeGeneration(effect.token)) return;
+            dispatch({
+              type: "AI_QUESTION_SUCCEEDED",
+              token: effect.token,
+              snapshot,
+              continuationToken: createContinuationToken(snapshot),
+            });
+          })
+          .catch((error) => {
+            if (!acceptsRuntimeGeneration(effect.token)) return;
+            dispatch({
+              type: "AI_QUESTION_FAILED",
+              token: effect.token,
+              errorCode: errorCode(error),
+            });
+          });
+      }
+    } else if (effect.kind === "request-ai-summary") {
+      if (!repository.requestAiSummary) {
+        operation = Promise.resolve().then(() => {
+          dispatch({
+            type: "AI_SUMMARY_FAILED",
+            token: effect.token,
+            errorCode: errorCode(new Error("ai-summary-port-missing")),
+          });
+        });
+      } else {
+        operation = repository
+          .requestAiSummary({ token: effect.token, history: effect.history })
+          .then((snapshot) => {
+            if (!acceptsRuntimeGeneration(effect.token)) return;
+            dispatch({ type: "AI_SUMMARY_SUCCEEDED", token: effect.token, snapshot });
+          })
+          .catch((error) => {
+            if (!acceptsRuntimeGeneration(effect.token)) return;
+            dispatch({
+              type: "AI_SUMMARY_FAILED",
+              token: effect.token,
+              errorCode: errorCode(error),
+            });
+          });
+      }
+    } else if (effect.kind === "acknowledge-safety") {
+      if (!repository.acknowledgeSafety) {
+        operation = Promise.resolve().then(() => {
+          dispatch({
+            type: "SAFETY_ACTION_FAILED",
+            token: effect.token,
+            errorCode: errorCode(new Error("safety-action-port-missing")),
+          });
+        });
+      } else {
+        operation = repository
+          .acknowledgeSafety({ token: effect.token, action: effect.action })
+          .then(() => {
+            if (!acceptsRuntimeGeneration(effect.token)) return;
+            dispatch({ type: "SAFETY_ACTION_SUCCEEDED", token: effect.token });
+          })
+          .catch((error) => {
+            if (!acceptsRuntimeGeneration(effect.token)) return;
+            dispatch({
+              type: "SAFETY_ACTION_FAILED",
+              token: effect.token,
+              errorCode: errorCode(error),
+            });
+          });
+      }
     } else {
       operation = repository
         .complete({ token: effect.token })
@@ -224,14 +356,21 @@ export function createInterviewApplicationService({
       dispatch({ type: "SUBMIT_REQUESTED", token: createToken() });
       flushDirtyDraft();
     },
+    retryAi() {
+      dispatch({ type: "AI_RETRY_REQUESTED", token: createToken() });
+    },
     complete() {
       dispatch({ type: "COMPLETE_REQUESTED", token: createToken() });
+    },
+    acknowledgeSafety(action) {
+      dispatch({ type: "SAFETY_ACTION_REQUESTED", token: createToken(), action });
     },
     navigate(path) {
       dispatch({ type: "NAVIGATION_REQUESTED", path });
     },
     dispose() {
       started = false;
+      repository.dispose?.();
       dispatch({ type: "DISPOSED" });
       listeners.clear();
     },

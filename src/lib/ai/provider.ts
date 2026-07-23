@@ -1,9 +1,9 @@
 import "server-only";
 
 import type {
-  AiInterviewContextV1,
-  AiQuestionResponseV1,
-  AiSummaryResponseV1,
+  AiInterviewContext,
+  AiQuestionResponseForContext,
+  AiSummaryResponseForContext,
 } from "./contracts";
 import { createMockMedGemmaAdapter } from "./mock-medgemma-adapter";
 import { createModalMedGemmaAdapter } from "./modal-medgemma-adapter";
@@ -14,16 +14,16 @@ export type AiRequestIdentity = {
 };
 
 export interface MedGemmaProvider {
-  requestQuestion(
-    context: AiInterviewContextV1,
+  requestQuestion<TContext extends AiInterviewContext>(
+    context: TContext,
     signal: AbortSignal,
     identity: AiRequestIdentity,
-  ): Promise<AiQuestionResponseV1>;
-  requestSummary(
-    context: AiInterviewContextV1,
+  ): Promise<AiQuestionResponseForContext<TContext>>;
+  requestSummary<TContext extends AiInterviewContext>(
+    context: TContext,
     signal: AbortSignal,
     identity: AiRequestIdentity,
-  ): Promise<AiSummaryResponseV1>;
+  ): Promise<AiSummaryResponseForContext<TContext>>;
 }
 
 export type MedGemmaProviderErrorCode =
@@ -41,7 +41,7 @@ export class MedGemmaProviderError extends Error {
 }
 
 export const MEDGEMMA_DEFAULT_TIMEOUT_MS = 75_000;
-export const MEDGEMMA_MAX_TIMEOUT_MS = 85_000;
+export const MEDGEMMA_MAX_TIMEOUT_MS = 180_000;
 
 type ProviderEnvironment = Partial<Pick<
   NodeJS.ProcessEnv,

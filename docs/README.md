@@ -26,6 +26,8 @@
 20. [U2 수동 문진·프로필 수정·reset 구현 계획](./superpowers/plans/2026-07-22-u2-remaining-manual-profile-reset-implementation-plan.md)
 21. [U3 문진 상태·입력 계약 설계](./superpowers/specs/2026-07-22-u3-interview-state-input-contracts-design.md) — 구현 완료
 22. [U3 문진 상태·입력 계약 구현 계획](./superpowers/plans/2026-07-22-u3-interview-state-input-contracts-implementation-plan.md) — 검증 완료
+23. [U4 공개 AI 안전·근거·완료 여정 설계](./superpowers/specs/2026-07-22-u4-public-ai-safety-evidence-completion-design.md) — 구현 완료
+24. [U4 공개 AI 안전·근거·완료 여정 구현 계획](./superpowers/plans/2026-07-22-u4-public-ai-safety-evidence-completion-implementation-plan.md) — mock 검증 완료·actual 대기
 
 현재 목표는 AI Persona UT 실행 도구가 아니라 실제 문진 앱을 만드는 것이다. 공개 제품 흐름에는 Persona 선택·주입을 노출하지 않으며 향후 별도 설계에서만 검토한다. 기존 U1 검증 harness와 자동화 test는 합성·비식별 데이터만 사용한다. 실제 환자 정보와 실제 음성 입력은 개발·검증 범위가 아니다.
 
@@ -34,6 +36,7 @@
 - credential 없는 mock·로컬 검증: `npm run lint`, `npm run typecheck`, `npm run test:unit`, `npm run test:e2e`, `npm run build`, `.venv/bin/python -m pytest tests/modal`
 - actual harness 비활성 확인: `npm run test:actual` 실행 시 테스트 5건이 skip되어야 한다.
 - actual 검증: 사용자가 Hugging Face 약관·Modal Secret·proxy token·Workspace hard cap을 직접 준비하고 비용 발생을 승인한 뒤에만 `RUN_MEDGEMMA_ACTUAL=1 npm run test:actual`을 실행한다. 현재 Workspace hard cap은 `$10`이다.
+- 공개 AI 실제 응답 검증: 별도 비용 승인과 kill switch 복구 준비 뒤에만 `RUN_MEDGEMMA_ROUTE_ACTUAL=1 npm run test:route-actual -- tests/actual/public-ai-interview.actual.spec.ts`를 실행한다. 합성 입력으로 실제 질문 1회와 실제 요약 1회만 검증한다.
 
 endpoint URL과 token 값은 server-only 환경 변수에만 두며 채팅, 문서, snapshot, git에 기록하지 않는다. mock 통과, actual 통과, 공개 호스팅 통과는 각각 별도 증거로 관리한다.
 

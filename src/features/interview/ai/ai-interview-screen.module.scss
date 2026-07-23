@@ -1,0 +1,77 @@
+.page {
+  min-height: 100svh;
+  padding: 24px 16px;
+  display: grid;
+  place-items: center;
+  color: var(--color-text-primary);
+  background: var(--color-bg-secondary);
+}
+
+.card {
+  width: min(100%, 600px);
+  padding: 32px 24px;
+  display: grid;
+  gap: 20px;
+  background: var(--color-bg-primary);
+  border-radius: var(--radius-2xl);
+
+  h1,
+  p {
+    margin: 0;
+  }
+
+  button,
+  textarea {
+    font: inherit;
+  }
+
+  button {
+    min-height: var(--size-touch-target-min);
+    padding: 12px 18px;
+    border: 1px solid var(--color-border-default);
+    border-radius: var(--radius-md);
+    font-weight: 700;
+  }
+
+  :focus-visible {
+    outline: 3px solid var(--color-border-brand);
+    outline-offset: 3px;
+  }
+}
+
+.eyebrow {
+  color: var(--color-text-brand);
+  font-weight: 700;
+}
+
+.primary {
+  color: var(--color-text-on-primary);
+  background: var(--color-bg-brand-primary);
+}
+
+.summary {
+  display: grid;
+  gap: 12px;
+  padding-inline-start: 24px;
+}
+
+.safety {
+  border: 2px solid var(--color-border-error);
+}
+
+.actionGroup {
+  display: grid;
+  gap: 12px;
+}
+
+@media (max-width: 540px) {
+  .page {
+    padding: 0;
+    place-items: stretch;
+  }
+
+  .card {
+    min-height: 100svh;
+    border-radius: 0;
+  }
+}

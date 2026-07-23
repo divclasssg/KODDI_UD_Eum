@@ -1,6 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { AiInterviewContextV1 } from "@/lib/ai/contracts";
+import type {
+  AiInterviewContextV1,
+  AiInterviewContextV2,
+} from "@/lib/ai/contracts";
 import {
   MedGemmaProviderError,
   createModalMedGemmaAdapter,
@@ -27,6 +30,13 @@ const CONTEXT: AiInterviewContextV1 = {
   ],
 };
 
+const PUBLIC_CONTEXT: AiInterviewContextV2 = {
+  version: "2",
+  interviewId: "ai-public-001",
+  filledSlots: { "chief-complaint": "두통" },
+  recentTurns: [],
+};
+
 const IDENTITY: AiRequestIdentity = {
   sessionHash: "a".repeat(64),
   ipHash: "b".repeat(64),
@@ -51,9 +61,207 @@ afterEach(() => {
 });
 
 describe("Modal MedGemma adapter", () => {
+  it("공개 V2 요청에는 같은 V2 응답만 허용한다", async () => {
+    const accepted = createAdapter(
+      vi.fn<typeof fetch>().mockResolvedValue(
+        responseText({ version: "2", kind: "complete" }),
+      ),
+    );
+    await expect(
+      accepted.requestQuestion(
+        PUBLIC_CONTEXT,
+        new AbortController().signal,
+        IDENTITY,
+      ),
+    ).resolves.toEqual({ version: "2", kind: "complete" });
+
+    const mismatched = createAdapter(
+      vi.fn<typeof fetch>().mockResolvedValue(
+        responseText({ version: "1", kind: "complete" }),
+      ),
+    );
+    await expect(
+      mismatched.requestQuestion(
+        PUBLIC_CONTEXT,
+        new AbortController().signal,
+        IDENTITY,
+      ),
+    ).rejects.toEqual(
+      expect.objectContaining({ code: "invalid-provider-response" }),
+    );
+  });
+
+  it("계약 shape는 맞지만 안전하지 않은 provider 질문을 거절한다", async () => {
+    const adapter = createAdapter(
+      vi.fn<typeof fetch>().mockResolvedValue(
+        responseText({
+          version: "1",
+          kind: "question",
+          question: {
+            id: "question-treatment",
+            slot: "pattern",
+            text: "편두통이 확실하니 쉬세요.",
+            selection: "single",
+            options: [{ id: "yes", label: "예" }],
+          },
+        }),
+      ),
+    );
+
+    await expect(
+      adapter.requestQuestion(CONTEXT, new AbortController().signal, IDENTITY),
+    ).rejects.toEqual(
+      expect.objectContaining({ code: "invalid-provider-response" }),
+    );
+  });
+
+  it("이전 답변에 물음표만 붙인 provider 질문을 거절한다", async () => {
+    const adapter = createAdapter(
+      vi.fn<typeof fetch>().mockResolvedValue(
+        responseText({
+          version: "1",
+          kind: "question",
+          question: {
+            id: "question-repeated-answer",
+            slot: "pattern",
+            text: "두통이 있어요?",
+            selection: "single",
+            options: [{ id: "yes", label: "예" }],
+          },
+        }),
+      ),
+    );
+
+    await expect(
+      adapter.requestQuestion(CONTEXT, new AbortController().signal, IDENTITY),
+    ).rejects.toEqual(
+      expect.objectContaining({ code: "invalid-provider-response" }),
+    );
+  });
+
+  it("provider summary에서 검증된 item만 반환한다", async () => {
+    const adapter = createAdapter(
+      vi.fn<typeof fetch>().mockResolvedValue(
+        responseText({
+          version: "1",
+          kind: "summary",
+          summary: {
+            subjective: [
+              {
+                id: "subjective-kept",
+                text: "두통이 있어요",
+                evidenceTurnIds: ["turn-001"],
+              },
+            ],
+            objective: [
+              {
+                id: "objective-rejected",
+                text: "통증은 8점",
+                evidenceTurnIds: ["turn-001"],
+              },
+            ],
+            verificationNeeded: [],
+          },
+        }),
+      ),
+    );
+
+    await expect(
+      adapter.requestSummary(CONTEXT, new AbortController().signal, IDENTITY),
+    ).resolves.toMatchObject({
+      summary: {
+        subjective: [expect.objectContaining({ id: "subjective-kept" })],
+        objective: [],
+      },
+    });
+  });
+
+  it("검증 뒤 표시할 summary item이 없으면 fallback 신호를 provider 오류로 바꾼다", async () => {
+    const adapter = createAdapter(
+      vi.fn<typeof fetch>().mockResolvedValue(
+        responseText({
+          version: "1",
+          kind: "summary",
+          summary: {
+            subjective: [
+              {
+                id: "subjective-rejected",
+                text: "통증은 8점",
+                evidenceTurnIds: ["turn-001"],
+              },
+            ],
+            objective: [],
+            verificationNeeded: [],
+          },
+        }),
+      ),
+    );
+
+    await expect(
+      adapter.requestSummary(CONTEXT, new AbortController().signal, IDENTITY),
+    ).rejects.toEqual(
+      expect.objectContaining({ code: "invalid-provider-response" }),
+    );
+  });
+
+  it("V1 요청에는 V2 질문과 양방향 summary 응답을 거절한다", async () => {
+    const v1QuestionMismatch = createAdapter(
+      vi.fn<typeof fetch>().mockResolvedValue(
+        responseText({ version: "2", kind: "complete" }),
+      ),
+    );
+    await expect(
+      v1QuestionMismatch.requestQuestion(
+        CONTEXT,
+        new AbortController().signal,
+        IDENTITY,
+      ),
+    ).rejects.toEqual(
+      expect.objectContaining({ code: "invalid-provider-response" }),
+    );
+
+    const v1SummaryMismatch = createAdapter(
+      vi.fn<typeof fetch>().mockResolvedValue(
+        responseText({
+          version: "2",
+          kind: "summary",
+          summary: { subjective: [], objective: [], verificationNeeded: [] },
+        }),
+      ),
+    );
+    await expect(
+      v1SummaryMismatch.requestSummary(
+        CONTEXT,
+        new AbortController().signal,
+        IDENTITY,
+      ),
+    ).rejects.toEqual(
+      expect.objectContaining({ code: "invalid-provider-response" }),
+    );
+
+    const v2SummaryMismatch = createAdapter(
+      vi.fn<typeof fetch>().mockResolvedValue(
+        responseText({
+          version: "1",
+          kind: "summary",
+          summary: { subjective: [], objective: [], verificationNeeded: [] },
+        }),
+      ),
+    );
+    await expect(
+      v2SummaryMismatch.requestSummary(
+        PUBLIC_CONTEXT,
+        new AbortController().signal,
+        IDENTITY,
+      ),
+    ).rejects.toEqual(
+      expect.objectContaining({ code: "invalid-provider-response" }),
+    );
+  });
+
   it("비용 우선 cold timeout 범위를 고정한다", () => {
     expect(MEDGEMMA_DEFAULT_TIMEOUT_MS).toBe(75_000);
-    expect(MEDGEMMA_MAX_TIMEOUT_MS).toBe(85_000);
+    expect(MEDGEMMA_MAX_TIMEOUT_MS).toBe(180_000);
   });
 
   it("proxy 인증과 허용된 네 개 필드만 Modal에 보낸다", async () => {

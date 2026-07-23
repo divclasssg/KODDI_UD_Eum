@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { createEmptyDraft } from "@/features/interview/domain/interview-draft";
+import { PUBLIC_AI_COMPLETION_MARKER } from "@/features/interview/ai/ai-interview-service";
 import { createManualInterviewService } from "@/features/interview/manual/manual-interview-service";
 import { MANUAL_QUESTION_SET_V2 } from "@/features/interview/manual/manual-question-set";
 
@@ -9,7 +10,11 @@ import {
   type InterviewAggregateV1,
   type RevisionToken,
 } from "@/lib/db/contracts";
-import { openMedicalInterviewDatabase } from "@/lib/db/database";
+import {
+  openMedicalInterviewDatabase,
+  requestResult,
+  transactionComplete,
+} from "@/lib/db/database";
 import {
   ConsentRequiredError,
   DatabaseCorruptionError,
@@ -21,12 +26,16 @@ import { createInterviewRepository } from "@/lib/db/interview-repository";
 import { createProfileRepository } from "@/lib/db/profile-repository";
 
 import {
+  SYNTHETIC_AI_INTERVIEW_V2_INPUT,
   SYNTHETIC_DECLINED_AI_CONSENT_INPUT,
+  SYNTHETIC_DEFAULT_TEXT_SWITCH_QUESTION_V2,
   SYNTHETIC_FINAL_PROGRESS_INPUT,
+  SYNTHETIC_GENERATED_QUESTION_V2,
   SYNTHETIC_INTERVIEW_INPUT,
   SYNTHETIC_INTERVIEW_V2_INPUT,
   SYNTHETIC_PROFILE_BUNDLE_INPUT,
   SYNTHETIC_PROGRESS_INPUT,
+  SYNTHETIC_SAFETY_REVIEW_INPUT,
   SYNTHETIC_SUMMARY_INPUT,
 } from "./fixtures";
 
@@ -35,6 +44,30 @@ function token(aggregate: InterviewAggregateV1): RevisionToken {
     interviewId: aggregate.interview.id,
     expectedRevision: aggregate.interview.revision,
     runtimeGeneration: 0,
+  };
+}
+
+async function readRawAggregate(database: IDBDatabase, interviewId: string) {
+  const transaction = database.transaction(
+    ["interviews", "interviewDrafts", "messages", "summaries"],
+    "readonly",
+  );
+  const [interview, draft, messages, summary] = await Promise.all([
+    requestResult(transaction.objectStore("interviews").get(interviewId)),
+    requestResult(transaction.objectStore("interviewDrafts").get(interviewId)),
+    requestResult(
+      transaction.objectStore("messages").index("byInterviewId").getAll(
+        interviewId,
+      ),
+    ),
+    requestResult(transaction.objectStore("summaries").get(interviewId)),
+  ]);
+  await transactionComplete(transaction);
+  return {
+    interview,
+    draft,
+    messages: messages.sort((left, right) => left.sequence - right.sequence),
+    summary,
   };
 }
 
@@ -83,6 +116,63 @@ describe("Interview repository", () => {
       input: { commonDraft: { contractVersion: 2 } },
     });
 
+    database.close();
+  });
+
+  it("동시 AI find-or-create는 active draft 하나만 원자 생성한다", async () => {
+    const secondDatabase = await openMedicalInterviewDatabase();
+    const firstRepository = createInterviewRepository(database);
+    const secondRepository = createInterviewRepository(secondDatabase);
+
+    expect(firstRepository).toHaveProperty("findOrCreateAi");
+    if (
+      !("findOrCreateAi" in firstRepository) ||
+      !("findOrCreateAi" in secondRepository) ||
+      typeof firstRepository.findOrCreateAi !== "function" ||
+      typeof secondRepository.findOrCreateAi !== "function"
+    ) {
+      secondDatabase.close();
+      database.close();
+      return;
+    }
+
+    const [first, second] = await Promise.all([
+      firstRepository.findOrCreateAi({
+        ...SYNTHETIC_AI_INTERVIEW_V2_INPUT,
+        id: "concurrent-ai-first",
+      }),
+      secondRepository.findOrCreateAi({
+        ...SYNTHETIC_AI_INTERVIEW_V2_INPUT,
+        id: "concurrent-ai-second",
+      }),
+    ]);
+    const transaction = database.transaction(
+      ["interviews", "interviewDrafts"],
+      "readonly",
+    );
+    const [interviews, drafts] = await Promise.all([
+      requestResult(transaction.objectStore("interviews").getAll()),
+      requestResult(transaction.objectStore("interviewDrafts").getAll()),
+    ]);
+    await transactionComplete(transaction);
+    const activeAiInterviews = interviews.filter(
+      (interview) =>
+        interview.mode === "ai" &&
+        (interview.status === "draft" || interview.status === "review"),
+    );
+    const activeIds = new Set(activeAiInterviews.map(({ id }) => id));
+    const hiddenDrafts = drafts.filter(
+      ({ interviewId }) => !activeIds.has(interviewId),
+    );
+
+    expect(first.interview.id).toBe(second.interview.id);
+    expect(activeAiInterviews).toHaveLength(1);
+    expect(drafts).toHaveLength(1);
+    expect(hiddenDrafts).toHaveLength(0);
+    expect(database.version).toBe(1);
+    expect([...database.objectStoreNames]).toHaveLength(8);
+
+    secondDatabase.close();
     database.close();
   });
 
@@ -175,6 +265,663 @@ describe("Interview repository", () => {
     expect(saved.draft?.schemaVersion).toBe(2);
     if (saved.draft?.schemaVersion !== 2) throw new Error("expected-v2-draft");
     expect(saved.draft.input.commonDraft).toEqual(nextCommonDraft);
+
+    database.close();
+  });
+
+  it("생성 질문을 V2 snapshot 끝에 추가하고 빈 draft로 원자 전환한다", async () => {
+    const repository = createInterviewRepository(database);
+    const created = await repository.create(SYNTHETIC_AI_INTERVIEW_V2_INPUT);
+    const originalSnapshot = structuredClone(created.interview);
+    const generatedQuestion = structuredClone(SYNTHETIC_GENERATED_QUESTION_V2);
+
+    const saved = await repository.saveGeneratedQuestion(token(created), {
+      question: generatedQuestion,
+      updatedAt: toUtcTimestamp("2026-07-22T01:01:00.000Z"),
+    });
+    generatedQuestion.text = "저장 뒤 변경된 문구";
+    const restored = await repository.loadInProgress(created.interview.id);
+
+    expect(database.version).toBe(1);
+    expect([...database.objectStoreNames]).toHaveLength(8);
+    expect(saved.interview.schemaVersion).toBe(2);
+    if (saved.interview.schemaVersion !== 2) {
+      throw new Error("expected-v2-interview");
+    }
+    expect(saved.interview.questionSetSnapshot.questions.at(-1)?.id)
+      .toBe("ai-question-002");
+    expect(saved.interview.questionSetSnapshot.questions.slice(0, -1))
+      .toEqual(SYNTHETIC_AI_INTERVIEW_V2_INPUT.questionSetSnapshot.questions);
+    expect(created.interview).toEqual(originalSnapshot);
+    expect(saved.draft?.currentQuestion.id).toBe("ai-question-002");
+    expect(restored?.interview).toEqual(saved.interview);
+    expect(saved.draft).toMatchObject({
+      schemaVersion: 2,
+      revision: 2,
+      input: {
+        mode: "choice",
+        text: "",
+        selectedOptionIds: [],
+        commonDraft: {
+          contractVersion: 2,
+          questionId: "ai-question-002",
+          activeMode: "choice",
+        },
+      },
+    });
+
+    database.close();
+  });
+
+  it("답변 commit 뒤 current question과 마지막 Q/A를 같게 복원한다", async () => {
+    const repository = createInterviewRepository(database);
+    const created = await repository.create(SYNTHETIC_AI_INTERVIEW_V2_INPUT);
+    if (created.draft?.schemaVersion !== 2) throw new Error("expected-v2-draft");
+    const answerCommitted = await repository.saveProgress(token(created), {
+      draft: {
+        currentQuestion: structuredClone(created.draft.currentQuestion),
+        input: structuredClone(created.draft.input),
+        updatedAt: toUtcTimestamp("2026-07-22T01:00:30.000Z"),
+      },
+      appendedMessages: SYNTHETIC_SAFETY_REVIEW_INPUT.appendedMessages
+        .slice(0, 2),
+    });
+
+    const restored = await repository.loadInProgress(created.interview.id);
+
+    expect(restored).toEqual(answerCommitted);
+    expect(restored?.draft?.currentQuestion.text)
+      .toBe(restored?.messages.at(-2)?.text);
+    expect(restored?.messages.slice(-2).map(({ role, kind }) => ({ role, kind })))
+      .toEqual([
+        { role: "assistant", kind: "question" },
+        { role: "user", kind: "answer" },
+      ]);
+
+    database.close();
+  });
+
+  it("provider complete marker를 기존 message store에 원자 저장한다", async () => {
+    const repository = createInterviewRepository(database);
+    const created = await repository.create(SYNTHETIC_AI_INTERVIEW_V2_INPUT);
+    if (created.draft?.schemaVersion !== 2) throw new Error("expected-v2-draft");
+    const answerCommitted = await repository.saveProgress(token(created), {
+      draft: {
+        currentQuestion: structuredClone(created.draft.currentQuestion),
+        input: structuredClone(created.draft.input),
+        updatedAt: toUtcTimestamp("2026-07-22T01:00:30.000Z"),
+      },
+      appendedMessages: SYNTHETIC_SAFETY_REVIEW_INPUT.appendedMessages.slice(0, 2),
+    });
+    if (answerCommitted.draft?.schemaVersion !== 2) {
+      throw new Error("expected-v2-draft");
+    }
+
+    const marked = await repository.saveProgress(token(answerCommitted), {
+      draft: {
+        currentQuestion: structuredClone(answerCommitted.draft.currentQuestion),
+        input: structuredClone(answerCommitted.draft.input),
+        updatedAt: toUtcTimestamp("2026-07-22T01:00:31.000Z"),
+      },
+      appendedMessages: [{
+        id: "message-completion-002",
+        sequence: 2,
+        role: "system",
+        kind: "completion",
+        text: PUBLIC_AI_COMPLETION_MARKER,
+        createdAt: toUtcTimestamp("2026-07-22T01:00:31.000Z"),
+      }],
+    });
+    const restored = await repository.loadInProgress(created.interview.id);
+
+    expect(database.version).toBe(1);
+    expect([...database.objectStoreNames]).toHaveLength(8);
+    expect(restored).toEqual(marked);
+    expect(restored?.messages.at(-1)).toMatchObject({
+      schemaVersion: 1,
+      sequence: 2,
+      role: "system",
+      kind: "completion",
+      text: PUBLIC_AI_COMPLETION_MARKER,
+    });
+
+    database.close();
+  });
+
+  it("default text 질문을 chip으로 persist한 뒤 생성 질문을 저장한다", async () => {
+    const repository = createInterviewRepository(database);
+    const created = await repository.create(SYNTHETIC_AI_INTERVIEW_V2_INPUT);
+    const generated = await repository.saveGeneratedQuestion(token(created), {
+      question: SYNTHETIC_DEFAULT_TEXT_SWITCH_QUESTION_V2,
+      updatedAt: toUtcTimestamp("2026-07-22T01:01:00.000Z"),
+    });
+    const switchedDraft = createEmptyDraft(
+      SYNTHETIC_DEFAULT_TEXT_SWITCH_QUESTION_V2,
+    );
+    switchedDraft.activeMode = "chip";
+    switchedDraft.values.chip.selectedOptionIds = ["mild"];
+    const switched = await repository.persistDraft(token(generated), {
+      commonDraft: switchedDraft,
+      updatedAt: toUtcTimestamp("2026-07-22T01:01:30.000Z"),
+    });
+
+    const saved = await repository.saveGeneratedQuestion(token(switched), {
+      question: SYNTHETIC_GENERATED_QUESTION_V2,
+      updatedAt: toUtcTimestamp("2026-07-22T01:02:00.000Z"),
+    });
+
+    expect(switched.draft?.currentQuestion).toMatchObject({
+      id: SYNTHETIC_DEFAULT_TEXT_SWITCH_QUESTION_V2.id,
+      selection: "single",
+      options: [],
+    });
+    expect(saved.draft?.currentQuestion.id).toBe(
+      SYNTHETIC_GENERATED_QUESTION_V2.id,
+    );
+
+    database.close();
+  });
+
+  it("중복 생성 질문 ID와 stale revision을 거절하고 snapshot을 유지한다", async () => {
+    const repository = createInterviewRepository(database);
+    const created = await repository.create(SYNTHETIC_AI_INTERVIEW_V2_INPUT);
+    const duplicate = {
+      ...SYNTHETIC_GENERATED_QUESTION_V2,
+      id: "ai-question-001",
+    };
+
+    await expect(repository.saveGeneratedQuestion(token(created), {
+      question: duplicate,
+      updatedAt: toUtcTimestamp("2026-07-22T01:01:00.000Z"),
+    })).rejects.toBeInstanceOf(DatabaseCorruptionError);
+    await expect(repository.saveGeneratedQuestion({
+      ...token(created),
+      expectedRevision: 0,
+    }, {
+      question: SYNTHETIC_GENERATED_QUESTION_V2,
+      updatedAt: toUtcTimestamp("2026-07-22T01:01:00.000Z"),
+    })).rejects.toBeInstanceOf(RevisionConflictError);
+    expect(await repository.loadInProgress(created.interview.id)).toEqual(created);
+
+    database.close();
+  });
+
+  it("생성 질문 저장은 exact runtime generation과 local consent를 요구한다", async () => {
+    const repository = createInterviewRepository(database, {
+      assertRuntimeGeneration(generation) {
+        if (generation !== 7) throw new Error("stale-runtime-generation");
+      },
+    });
+    const created = await repository.create(SYNTHETIC_AI_INTERVIEW_V2_INPUT);
+    const input = {
+      question: SYNTHETIC_GENERATED_QUESTION_V2,
+      updatedAt: toUtcTimestamp("2026-07-22T01:01:00.000Z"),
+    };
+
+    await expect(repository.saveGeneratedQuestion(token(created), input))
+      .rejects.toThrow("stale-runtime-generation");
+    await createConsentRepository(database).withdrawLocalStorage();
+    await expect(repository.saveGeneratedQuestion({
+      ...token(created),
+      runtimeGeneration: 7,
+    }, input)).rejects.toBeInstanceOf(ConsentRequiredError);
+
+    database.close();
+  });
+
+  it("생성 질문 commit 뒤 동의 철회가 큐잉되어도 결과와 durable 상태가 같다", async () => {
+    const repository = createInterviewRepository(database);
+    const created = await repository.create(SYNTHETIC_AI_INTERVIEW_V2_INPUT);
+
+    const saving = repository.saveGeneratedQuestion(token(created), {
+      question: SYNTHETIC_GENERATED_QUESTION_V2,
+      updatedAt: toUtcTimestamp("2026-07-22T01:01:00.000Z"),
+    });
+    const withdrawing = createConsentRepository(database).withdrawLocalStorage();
+    const [saved] = await Promise.all([saving, withdrawing]);
+
+    expect(await readRawAggregate(database, created.interview.id)).toEqual(saved);
+
+    database.close();
+  });
+
+  it("안전 review commit 뒤 동의 철회가 큐잉되어도 결과와 durable 상태가 같다", async () => {
+    const repository = createInterviewRepository(database);
+    const created = await repository.create(SYNTHETIC_AI_INTERVIEW_V2_INPUT);
+
+    const saving = repository.saveSafetyReview(
+      token(created),
+      SYNTHETIC_SAFETY_REVIEW_INPUT,
+    );
+    const withdrawing = createConsentRepository(database).withdrawLocalStorage();
+    const [saved] = await Promise.all([saving, withdrawing]);
+
+    expect(await readRawAggregate(database, created.interview.id)).toEqual(saved);
+
+    database.close();
+  });
+
+  it("생성 질문 입력을 호출 직후 바꿔도 최초 snapshot만 저장한다", async () => {
+    const repository = createInterviewRepository(database);
+    const created = await repository.create(SYNTHETIC_AI_INTERVIEW_V2_INPUT);
+    const input = {
+      question: structuredClone(SYNTHETIC_GENERATED_QUESTION_V2),
+      updatedAt: toUtcTimestamp("2026-07-22T01:01:00.000Z"),
+    };
+
+    const saving = repository.saveGeneratedQuestion(token(created), input);
+    input.question.text = "호출 직후 변경된 생성 질문";
+    input.updatedAt = toUtcTimestamp("2026-07-22T02:00:00.000Z");
+    const saved = await saving;
+
+    expect(saved.interview.updatedAt).toBe("2026-07-22T01:01:00.000Z");
+    expect(saved.draft?.currentQuestion.text)
+      .toBe(SYNTHETIC_GENERATED_QUESTION_V2.text);
+
+    database.close();
+  });
+
+  it("안전 review 입력을 호출 직후 바꿔도 최초 snapshot만 저장한다", async () => {
+    const repository = createInterviewRepository(database);
+    const created = await repository.create(SYNTHETIC_AI_INTERVIEW_V2_INPUT);
+    const input = structuredClone(SYNTHETIC_SAFETY_REVIEW_INPUT);
+
+    const saving = repository.saveSafetyReview(token(created), input);
+    input.appendedMessages[1].text = "호출 직후 변경된 답변";
+    input.appendedMessages[2].text = "호출 직후 변경된 안전 문구";
+    input.updatedAt = toUtcTimestamp("2026-07-22T02:00:00.000Z");
+    const saved = await saving;
+
+    expect(saved.interview.updatedAt)
+      .toBe(SYNTHETIC_SAFETY_REVIEW_INPUT.updatedAt);
+    expect(saved.messages.at(-2)?.text)
+      .toBe(SYNTHETIC_SAFETY_REVIEW_INPUT.appendedMessages[1].text);
+    expect(saved.messages.at(-1)?.text)
+      .toBe(SYNTHETIC_SAFETY_REVIEW_INPUT.appendedMessages[2].text);
+
+    database.close();
+  });
+
+  it("생성 질문은 async read 중 runtime generation이 바뀌면 mutation 전에 거절한다", async () => {
+    let runtimeGeneration = 0;
+    const repository = createInterviewRepository(database, {
+      assertRuntimeGeneration(generation) {
+        if (generation !== runtimeGeneration) {
+          throw new Error("stale-runtime-generation");
+        }
+      },
+    });
+    const created = await repository.create(SYNTHETIC_AI_INTERVIEW_V2_INPUT);
+    const before = await readRawAggregate(database, created.interview.id);
+
+    const saving = repository.saveGeneratedQuestion(token(created), {
+      question: SYNTHETIC_GENERATED_QUESTION_V2,
+      updatedAt: toUtcTimestamp("2026-07-22T01:01:00.000Z"),
+    });
+    runtimeGeneration = 1;
+
+    await expect(saving).rejects.toThrow("stale-runtime-generation");
+    expect(await readRawAggregate(database, created.interview.id)).toEqual(before);
+
+    database.close();
+  });
+
+  it("생성 질문 final put 직전 signal abort는 aggregate 전체를 되돌린다", async () => {
+    const controller = new AbortController();
+    const repository = createInterviewRepository(database, {
+      beforeFinalPut(storeName) {
+        if (storeName === "interviews") controller.abort();
+      },
+    });
+    const created = await repository.create(SYNTHETIC_AI_INTERVIEW_V2_INPUT);
+    const before = await readRawAggregate(database, created.interview.id);
+
+    await expect(repository.saveGeneratedQuestion(token(created), {
+      question: SYNTHETIC_GENERATED_QUESTION_V2,
+      updatedAt: toUtcTimestamp("2026-07-22T01:01:00.000Z"),
+    }, controller.signal)).rejects.toMatchObject({ name: "AbortError" });
+    expect(await readRawAggregate(database, created.interview.id)).toEqual(before);
+
+    database.close();
+  });
+
+  it("progress final put 직전 signal abort는 aggregate 전체를 되돌린다", async () => {
+    const controller = new AbortController();
+    const repository = createInterviewRepository(database, {
+      beforeFinalPut(storeName) {
+        if (storeName === "interviews") controller.abort();
+      },
+    });
+    const created = await repository.create(SYNTHETIC_AI_INTERVIEW_V2_INPUT);
+    const before = await readRawAggregate(database, created.interview.id);
+
+    await expect(repository.saveProgress(token(created), {
+      draft: structuredClone(SYNTHETIC_AI_INTERVIEW_V2_INPUT.draft),
+      appendedMessages: [],
+    }, controller.signal)).rejects.toMatchObject({ name: "AbortError" });
+    expect(await readRawAggregate(database, created.interview.id)).toEqual(before);
+
+    database.close();
+  });
+
+  it("summary final put 직전 signal abort는 aggregate 전체를 되돌린다", async () => {
+    const originalRepository = createInterviewRepository(database);
+    const created = await originalRepository.create(SYNTHETIC_INTERVIEW_INPUT);
+    const progressed = await originalRepository.saveProgress(
+      token(created),
+      SYNTHETIC_PROGRESS_INPUT,
+    );
+    const before = await readRawAggregate(database, created.interview.id);
+    const controller = new AbortController();
+    const repository = createInterviewRepository(database, {
+      beforeFinalPut(storeName) {
+        if (storeName === "interviews") controller.abort();
+      },
+    });
+
+    await expect(repository.saveSummary(
+      token(progressed),
+      SYNTHETIC_SUMMARY_INPUT,
+      controller.signal,
+    )).rejects.toMatchObject({ name: "AbortError" });
+    expect(await readRawAggregate(database, created.interview.id)).toEqual(before);
+
+    database.close();
+  });
+
+  it("안전 review는 async read 중 runtime generation이 바뀌면 mutation 전에 거절한다", async () => {
+    let runtimeGeneration = 0;
+    const repository = createInterviewRepository(database, {
+      assertRuntimeGeneration(generation) {
+        if (generation !== runtimeGeneration) {
+          throw new Error("stale-runtime-generation");
+        }
+      },
+    });
+    const created = await repository.create(SYNTHETIC_AI_INTERVIEW_V2_INPUT);
+    const before = await readRawAggregate(database, created.interview.id);
+
+    const saving = repository.saveSafetyReview(
+      token(created),
+      SYNTHETIC_SAFETY_REVIEW_INPUT,
+    );
+    runtimeGeneration = 1;
+
+    await expect(saving).rejects.toThrow("stale-runtime-generation");
+    expect(await readRawAggregate(database, created.interview.id)).toEqual(before);
+
+    database.close();
+  });
+
+  it("안전 종료는 async read 중 runtime generation이 바뀌면 mutation 전에 거절한다", async () => {
+    const setupRepository = createInterviewRepository(database);
+    const created = await setupRepository.create(SYNTHETIC_AI_INTERVIEW_V2_INPUT);
+    const reviewed = await setupRepository.saveSafetyReview(
+      token(created),
+      SYNTHETIC_SAFETY_REVIEW_INPUT,
+    );
+    let runtimeGeneration = 0;
+    const repository = createInterviewRepository(database, {
+      assertRuntimeGeneration(generation) {
+        if (generation !== runtimeGeneration) {
+          throw new Error("stale-runtime-generation");
+        }
+      },
+    });
+    const before = await readRawAggregate(database, created.interview.id);
+
+    const stopping = repository.confirmSafetyStop(token(reviewed), "call-119");
+    runtimeGeneration = 1;
+
+    await expect(stopping).rejects.toThrow("stale-runtime-generation");
+    expect(await readRawAggregate(database, created.interview.id)).toEqual(before);
+
+    database.close();
+  });
+
+  it("생성 질문은 기존 message sequence gap을 발견하면 원본을 그대로 둔다", async () => {
+    const repository = createInterviewRepository(database);
+    const created = await repository.create(SYNTHETIC_AI_INTERVIEW_V2_INPUT);
+    const corruption = database.transaction("messages", "readwrite");
+    corruption.objectStore("messages").add({
+      interviewId: created.interview.id,
+      schemaVersion: 1,
+      id: "raw-gap-message",
+      sequence: 4,
+      role: "user",
+      kind: "answer",
+      text: "합성 sequence gap",
+      createdAt: SYNTHETIC_SAFETY_REVIEW_INPUT.updatedAt,
+    });
+    await transactionComplete(corruption);
+    const before = await readRawAggregate(database, created.interview.id);
+
+    await expect(repository.saveGeneratedQuestion(token(created), {
+      question: SYNTHETIC_GENERATED_QUESTION_V2,
+      updatedAt: toUtcTimestamp("2026-07-22T01:01:00.000Z"),
+    })).rejects.toBeInstanceOf(DatabaseCorruptionError);
+    expect(await readRawAggregate(database, created.interview.id)).toEqual(before);
+
+    database.close();
+  });
+
+  it("안전 review는 draft와 question snapshot 불일치를 발견하면 원본을 그대로 둔다", async () => {
+    const repository = createInterviewRepository(database);
+    const created = await repository.create(SYNTHETIC_AI_INTERVIEW_V2_INPUT);
+    const corruption = database.transaction("interviewDrafts", "readwrite");
+    corruption.objectStore("interviewDrafts").put({
+      ...created.draft,
+      currentQuestion: {
+        ...created.draft?.currentQuestion,
+        slot: "raw-corrupted-slot",
+      },
+    });
+    await transactionComplete(corruption);
+    const before = await readRawAggregate(database, created.interview.id);
+
+    await expect(repository.saveSafetyReview(
+      token(created),
+      SYNTHETIC_SAFETY_REVIEW_INPUT,
+    )).rejects.toBeInstanceOf(DatabaseCorruptionError);
+    expect(await readRawAggregate(database, created.interview.id)).toEqual(before);
+
+    database.close();
+  });
+
+  it("안전 종료는 common draft와 question snapshot 불일치를 발견하면 원본을 그대로 둔다", async () => {
+    const repository = createInterviewRepository(database);
+    const created = await repository.create(SYNTHETIC_AI_INTERVIEW_V2_INPUT);
+    const reviewed = await repository.saveSafetyReview(
+      token(created),
+      SYNTHETIC_SAFETY_REVIEW_INPUT,
+    );
+    if (reviewed.draft?.schemaVersion !== 2) throw new Error("expected-v2-draft");
+    const corruption = database.transaction("interviewDrafts", "readwrite");
+    corruption.objectStore("interviewDrafts").put({
+      ...reviewed.draft,
+      input: {
+        ...reviewed.draft.input,
+        commonDraft: {
+          ...reviewed.draft.input.commonDraft,
+          allowedModes: ["choice"],
+        },
+      },
+    });
+    await transactionComplete(corruption);
+    const before = await readRawAggregate(database, created.interview.id);
+
+    await expect(repository.confirmSafetyStop(token(reviewed), "call-119"))
+      .rejects.toBeInstanceOf(DatabaseCorruptionError);
+    expect(await readRawAggregate(database, created.interview.id)).toEqual(before);
+
+    database.close();
+  });
+
+  it("생성 질문 transaction 중간 실패 시 aggregate 전체를 되돌린다", async () => {
+    const originalRepository = createInterviewRepository(database);
+    const created = await originalRepository.create(SYNTHETIC_AI_INTERVIEW_V2_INPUT);
+    const failingRepository = createInterviewRepository(database, {
+      beforeFinalPut(storeName) {
+        if (storeName === "interviewDrafts") {
+          throw new Error("합성 생성 질문 실패");
+        }
+      },
+    });
+
+    await expect(failingRepository.saveGeneratedQuestion(token(created), {
+      question: SYNTHETIC_GENERATED_QUESTION_V2,
+      updatedAt: toUtcTimestamp("2026-07-22T01:01:00.000Z"),
+    })).rejects.toThrow("합성 생성 질문 실패");
+    expect(await originalRepository.loadInProgress(created.interview.id))
+      .toEqual(created);
+
+    database.close();
+  });
+
+  it("위험 Q/A와 safety message를 append하고 draft를 복원 가능하게 보존한다", async () => {
+    const repository = createInterviewRepository(database);
+    const created = await repository.create(SYNTHETIC_AI_INTERVIEW_V2_INPUT);
+
+    const reviewed = await repository.saveSafetyReview(
+      token(created),
+      SYNTHETIC_SAFETY_REVIEW_INPUT,
+    );
+    const restored = await repository.loadInProgress(created.interview.id);
+
+    expect(reviewed.interview).toMatchObject({ status: "draft", revision: 2 });
+    expect(reviewed.draft).toEqual({
+      ...created.draft,
+      revision: 2,
+      updatedAt: SYNTHETIC_SAFETY_REVIEW_INPUT.updatedAt,
+    });
+    expect(reviewed.messages.map(({ role, kind, sequence }) => ({
+      role,
+      kind,
+      sequence,
+    }))).toEqual([
+      { role: "assistant", kind: "question", sequence: 0 },
+      { role: "user", kind: "answer", sequence: 1 },
+      { role: "system", kind: "safety", sequence: 2 },
+    ]);
+    expect(restored).toEqual(reviewed);
+
+    database.close();
+  });
+
+  it("위험 review의 메시지 순서와 Q/A/safety 형태가 정확하지 않으면 거절한다", async () => {
+    const repository = createInterviewRepository(database);
+    const created = await repository.create(SYNTHETIC_AI_INTERVIEW_V2_INPUT);
+    const invalid = structuredClone(SYNTHETIC_SAFETY_REVIEW_INPUT);
+    invalid.appendedMessages[2].sequence = 4;
+    invalid.appendedMessages[2].kind = "answer";
+
+    await expect(repository.saveSafetyReview(token(created), invalid))
+      .rejects.toBeInstanceOf(DatabaseCorruptionError);
+    expect(await repository.loadInProgress(created.interview.id)).toEqual(created);
+
+    database.close();
+  });
+
+  it("위험 review transaction 중간 실패 시 aggregate 전체를 되돌린다", async () => {
+    const originalRepository = createInterviewRepository(database);
+    const created = await originalRepository.create(SYNTHETIC_AI_INTERVIEW_V2_INPUT);
+    const failingRepository = createInterviewRepository(database, {
+      beforeFinalPut(storeName) {
+        if (storeName === "messages") throw new Error("합성 안전 review 실패");
+      },
+    });
+
+    await expect(failingRepository.saveSafetyReview(
+      token(created),
+      SYNTHETIC_SAFETY_REVIEW_INPUT,
+    )).rejects.toThrow("합성 안전 review 실패");
+    expect(await originalRepository.loadInProgress(created.interview.id))
+      .toEqual(created);
+
+    database.close();
+  });
+
+  it("허용된 안전 행동 확인 뒤 terminal로 저장하고 draft를 삭제한다", async () => {
+    const stoppedAt = toUtcTimestamp("2026-07-22T01:02:00.000Z");
+    const repository = createInterviewRepository(database, { now: () => stoppedAt });
+    const created = await repository.create(SYNTHETIC_AI_INTERVIEW_V2_INPUT);
+    const reviewed = await repository.saveSafetyReview(
+      token(created),
+      SYNTHETIC_SAFETY_REVIEW_INPUT,
+    );
+
+    const stopped = await repository.confirmSafetyStop(
+      token(reviewed),
+      "call-119",
+    );
+    const storedTransaction = database.transaction(
+      ["interviews", "interviewDrafts"],
+      "readonly",
+    );
+    const [storedInterview, storedDraft] = await Promise.all([
+      requestResult(storedTransaction.objectStore("interviews").get(
+        created.interview.id,
+      )),
+      requestResult(storedTransaction.objectStore("interviewDrafts").get(
+        created.interview.id,
+      )),
+    ]);
+
+    expect(stopped.interview).toMatchObject({
+      status: "safety-stopped",
+      revision: 3,
+      updatedAt: stoppedAt,
+      safetyStopAction: "call-119",
+    });
+    expect(stopped.draft).toBeUndefined();
+    expect(stopped.messages).toEqual(reviewed.messages);
+    expect(storedInterview).toEqual(stopped.interview);
+    expect(storedDraft).toBeUndefined();
+    expect(await repository.loadInProgress(created.interview.id)).toBeUndefined();
+    await expect(repository.confirmSafetyStop(token(stopped), "view-summary"))
+      .rejects.toBeInstanceOf(ImmutableInterviewError);
+
+    database.close();
+  });
+
+  it("safety message 전이거나 허용되지 않은 행동이면 안전 종료하지 않는다", async () => {
+    const repository = createInterviewRepository(database);
+    const created = await repository.create(SYNTHETIC_AI_INTERVIEW_V2_INPUT);
+
+    await expect(repository.confirmSafetyStop(token(created), "call-119"))
+      .rejects.toBeInstanceOf(DatabaseCorruptionError);
+    const reviewed = await repository.saveSafetyReview(
+      token(created),
+      SYNTHETIC_SAFETY_REVIEW_INPUT,
+    );
+    await expect(repository.confirmSafetyStop(
+      token(reviewed),
+      "unsafe-action" as "call-119",
+    )).rejects.toBeInstanceOf(DatabaseCorruptionError);
+    expect(await repository.loadInProgress(created.interview.id)).toEqual(reviewed);
+
+    database.close();
+  });
+
+  it("안전 종료 transaction 중간 실패 시 review aggregate를 복원한다", async () => {
+    const originalRepository = createInterviewRepository(database);
+    const created = await originalRepository.create(SYNTHETIC_AI_INTERVIEW_V2_INPUT);
+    const reviewed = await originalRepository.saveSafetyReview(
+      token(created),
+      SYNTHETIC_SAFETY_REVIEW_INPUT,
+    );
+    const failingRepository = createInterviewRepository(database, {
+      beforeFinalPut(storeName) {
+        if (storeName === "interviewDrafts") throw new Error("합성 안전 종료 실패");
+      },
+    });
+
+    await expect(failingRepository.confirmSafetyStop(
+      token(reviewed),
+      "show-to-bystander",
+    )).rejects.toThrow("합성 안전 종료 실패");
+    expect(await originalRepository.loadInProgress(created.interview.id))
+      .toEqual(reviewed);
 
     database.close();
   });

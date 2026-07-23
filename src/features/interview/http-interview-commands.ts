@@ -7,6 +7,8 @@ import {
   parseAiQuestionResponseV1,
   parseAiSummaryResponseV1,
 } from "@/lib/ai/validators";
+import { validateGeneratedQuestion } from "@/lib/ai/question-safety-validator";
+import { validateSummaryEvidence } from "@/lib/ai/summary-evidence-validator";
 import { findDirectIdentifier } from "@/lib/demo/direct-identifier";
 
 import type {
@@ -114,6 +116,16 @@ export function createHttpInterviewCommands({
         createContext(history),
       )) as AiQuestionResponseV1;
       const parsed = parseAiQuestionResponseV1(value);
+      if (
+        parsed.kind === "question" &&
+        validateGeneratedQuestion(
+          parsed.question,
+          history.map((turn) => turn.question),
+          history.map((turn) => turn.answer),
+        ).status === "invalid"
+      ) {
+        throw new Error("unsafe-generated-question");
+      }
       return parsed.kind === "complete"
         ? { kind: "complete" }
         : { kind: "question", question: parsed.question };
@@ -123,10 +135,15 @@ export function createHttpInterviewCommands({
         "/api/ai/summary",
         createContext(history),
       )) as AiSummaryResponseV1;
-      return parseAiSummaryResponseV1(
+      const parsed = parseAiSummaryResponseV1(
         value,
         new Set(history.map((turn) => turn.id)),
-      ).summary;
+      );
+      const validation = validateSummaryEvidence(parsed.summary, history);
+      if (validation.usedFallback) {
+        throw new Error("invalid-summary-evidence");
+      }
+      return validation.summary;
     },
     reset() {
       abortPending();

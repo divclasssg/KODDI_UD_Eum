@@ -108,6 +108,61 @@ describe("HTTP 문진 command", () => {
     );
   });
 
+  it("client 신뢰 경계에서도 검증된 summary item만 반환한다", async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+      Response.json({
+        version: "1",
+        kind: "summary",
+        summary: {
+          subjective: [
+            {
+              id: "subjective-kept",
+              text: "두통이 있어요",
+              evidenceTurnIds: ["turn-001"],
+            },
+          ],
+          objective: [
+            {
+              id: "objective-rejected",
+              text: "통증은 8점",
+              evidenceTurnIds: ["turn-001"],
+            },
+          ],
+          verificationNeeded: [],
+        },
+      }),
+    );
+
+    await expect(
+      createCommands(fetchMock).requestSummary([
+        { id: "turn-001", question: "어디가 불편한가요?", answer: "두통이 있어요" },
+      ]),
+    ).resolves.toMatchObject({
+      subjective: [expect.objectContaining({ id: "subjective-kept" })],
+      objective: [],
+    });
+  });
+
+  it("신뢰 경계에서 안전하지 않은 질문을 반환하지 않는다", async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+      Response.json({
+        version: "1",
+        kind: "question",
+        question: {
+          id: "question-unsafe",
+          slot: "pattern",
+          text: "약을 두 알 더 드시겠어요?",
+          selection: "single",
+          options: [{ id: "yes", label: "예" }],
+        },
+      }),
+    );
+
+    await expect(createCommands(fetchMock).requestNext([])).rejects.toThrow(
+      "unsafe-generated-question",
+    );
+  });
+
   it("history에 없는 근거 ID가 있는 요약을 표시 대상으로 반환하지 않는다", async () => {
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
       Response.json({

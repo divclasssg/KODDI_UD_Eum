@@ -38,6 +38,26 @@ def valid_request() -> dict[str, object]:
     }
 
 
+def valid_public_request() -> dict[str, object]:
+    return {
+        "kind": "summary",
+        "context": {
+            "version": "2",
+            "interviewId": "ai-public-001",
+            "filledSlots": {"chief-complaint": "두통"},
+            "recentTurns": [
+                {
+                    "id": "turn-001",
+                    "question": "어디가 불편하신가요?",
+                    "answer": "오늘 아침부터 두통이 있어요",
+                }
+            ],
+        },
+        "session_hash": "a" * 64,
+        "ip_hash": "b" * 64,
+    }
+
+
 @pytest.mark.parametrize("kind", ["question", "summary"])
 def test_prompt_forbids_diagnosis_treatment_and_non_json_output(kind: str) -> None:
     payload = valid_request()
@@ -50,6 +70,31 @@ def test_prompt_forbids_diagnosis_treatment_and_non_json_output(kind: str) -> No
     assert "치료나 복약을 지시하지 마세요" in prompt
     assert "JSON 외의 텍스트를 출력하지 마세요" in prompt
     assert "합성 Persona 역할극" in prompt
+
+
+def test_public_v2_prompt_uses_interview_assistance_without_persona_roleplay() -> None:
+    request = InferenceRequest.model_validate(valid_public_request())
+
+    prompt = build_prompt(request.kind, request.context)
+
+    assert "공개 문진 보조" in prompt
+    assert "합성 Persona 역할극" not in prompt
+    assert "진단하지 마세요" in prompt
+    assert "치료나 복약을 지시하지 마세요" in prompt
+    assert "근거 turn ID" in prompt
+    assert "수치, 날짜, 시간, 단위" in prompt
+
+
+def test_public_v2_normalized_response_keeps_the_request_version() -> None:
+    request = InferenceRequest.model_validate(valid_public_request())
+
+    output = normalize_model_output(
+        "summary",
+        '오늘 아침부터 두통이 있어요."}',
+        request.context,
+    )
+
+    assert json.loads(output)["version"] == "2"
 
 
 def test_untrusted_answer_is_delimited_after_system_rules() -> None:
