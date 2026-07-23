@@ -63,3 +63,5 @@ next-env.d.ts
 
 # 격리된 개발용 worktree
 .worktrees/
+
+.env.local
