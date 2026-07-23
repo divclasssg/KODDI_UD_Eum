@@ -25,14 +25,16 @@
 
 증거(2026-07-22 U4): lint·typecheck, unit 36개 파일·365건, integration 6개 파일·67건, Modal Python 42건과 production build·Chromium E2E 23건이 통과했다. 공개 AI actual harness는 작성했지만 비용 승인을 받지 않아 실행하지 않았다.
 
+증거(2026-07-23 U4·U6 통합): lint·typecheck, unit 41개 파일·427건, integration 7개 파일·73건, production build와 전체 Chromium E2E 24건이 통과했다. 첫 E2E 서버 시작은 sandbox `EPERM`이었고, 성공한 동일 build를 사용해 승인된 credential-free Playwright를 재실행했다.
+
 ### 핵심 사용자 과업 Gate
 
-- [ ] Task 1A actual AI 문진·요약 확정·completed 저장
+- [x] Task 1A actual AI 문진·요약 확정·completed 저장
 - [x] Task 1B AI 비동의 manual 문진·기록 확인
 - [ ] Task 1B provider 실패 manual 문진·기록 확인
-- [ ] Task 2 오늘 기록·clinician view
+- [x] Task 2 오늘 기록·clinician view
 - [ ] Task 3 과거 기록·profile edit·snapshot 보존
-- [ ] onboarding부터 clinician view까지 동일 `interviewId` 연속 여정
+- [x] onboarding부터 clinician view까지 동일 `interviewId` 연속 여정
 
 ### 안전·개인정보·접근성 Gate
 

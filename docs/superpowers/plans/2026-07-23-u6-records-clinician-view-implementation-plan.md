@@ -553,7 +553,7 @@ expect(aiRequests).toBe(0);
 
 Set viewport to `393x852` and assert `document.documentElement.scrollWidth <= window.innerWidth`.
 
-- [ ] **Step 2: Run the targeted Chromium E2E**
+- [x] **Step 2: Run the targeted Chromium E2E**
 
 Run:
 
@@ -563,7 +563,7 @@ npx playwright test tests/e2e/records-clinician-view.spec.ts --project=chromium
 
 Expected: PASS. If sandbox localhost bind returns `EPERM`, rerun the identical credential-free command with the required sandbox approval.
 
-- [ ] **Step 3: Run the U6 milestone gate once**
+- [x] **Step 3: Run the U6 milestone gate once**
 
 Run independent commands in parallel where supported:
 
@@ -583,7 +583,7 @@ npx playwright test tests/e2e/records-clinician-view.spec.ts --project=chromium
 
 Do not run Modal actual or the full E2E suite at this milestone. The full production build and complete E2E remain the final commit·push·merge gate.
 
-- [ ] **Step 4: Update project evidence**
+- [x] **Step 4: Update project evidence**
 
 Record:
 
@@ -594,7 +594,7 @@ Record:
 - external AI/GPU call count 0
 - no stage, commit, push, or merge
 
-- [ ] **Step 5: Self-review the final diff**
+- [x] **Step 5: Self-review the final diff**
 
 Check:
 
@@ -606,6 +606,6 @@ rg -n "console\\.(log|debug|info)|dangerouslySetInnerHTML" src/features/records 
 
 Expected: no whitespace errors, only intended dirty-worktree files, and no raw data logging or HTML injection.
 
-- [ ] **Step 6: Stop at the user-controlled git boundary**
+- [x] **Step 6: Stop at the user-controlled git boundary**
 
-Report completed files, tests, deferred U5 scope, and remaining risks. Do not stage, commit, push, or merge until the user explicitly requests it.
+완료 파일·검증·U5 후순위 범위·잔여 위험을 보고한 뒤 사용자 요청 전까지 git 변경을 중단했다. 이후 명시적 통합 요청에 따라 `6681d9b`와 문서 정정 `4889e3c`를 로컬 `main`에 fast-forward했다.
