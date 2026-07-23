@@ -33,10 +33,12 @@
 
 - [x] Task 1A actual AI 문진·요약 확정·completed 저장
 - [x] Task 1B AI 비동의 manual 문진·기록 확인
-- [ ] Task 1B provider 실패 manual 문진·기록 확인
+- [x] Task 1B provider 실패 시 AI 문진 내 결정론적 대체 질문·입력 기반 요약·기록 확인
 - [x] Task 2 오늘 기록·clinician view
 - [x] Task 3 과거 기록·profile edit·snapshot 보존
 - [x] onboarding부터 clinician view까지 동일 `interviewId` 연속 여정
+
+증거(2026-07-23 provider 복구): `public-ai-interview.spec.ts`의 `provider 질문과 요약 실패 뒤 입력 기반 기록을 의료진용 화면까지 연다`가 focused Chromium 1건으로 통과했다. 질문·요약 route는 각각 합성 HTTP 503 1회였고 외부 AI·Modal·GPU 호출 없이 결정론적 대체 질문, `source: "manual"` 요약, completed AI 기록, 동일 ID 상세·의료진 참고용 화면을 확인했다.
 
 ### 안전·개인정보·접근성 Gate
 
