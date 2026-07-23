@@ -28,7 +28,7 @@
 
 `/profile?returnTo=/records/{encodedInterviewId}`를 사용한다. 기존 `/profile` 화면과 `ProfileRepository.saveBundle()`을 재사용하고, `returnTo`는 기록 상세 내부 경로만 허용한다.
 
-`sessionStorage` 방식은 탭·새로고침·오래된 상태 문제 때문에 사용하지 않는다. `/records/[id]/profile` 전용 화면도 기존 폼과 검증을 중복하므로 만들지 않는다.
+`returnTo`나 profile draft를 `sessionStorage`에 보관하는 방식은 탭·새로고침·오래된 상태 문제 때문에 사용하지 않는다. 저장 성공 접근성 알림만 예외로 같은 탭의 `sessionStorage`에 `"true"` 불리언 표식을 남기고 destination에서 한 번 소비한다. 이 표식에는 record ID, profile·medical content나 draft를 넣지 않는다. `/records/[id]/profile` 전용 화면도 기존 폼과 검증을 중복하므로 만들지 않는다.
 
 ## 화면과 이동
 
@@ -94,7 +94,7 @@
 - 기본정보와 의료정보는 각각 제목을 가진 section으로 제공한다.
 - 저장 중 `aria-busy`와 버튼 비활성화를 사용한다.
 - 저장 실패와 validation 오류는 `role="alert"`로 제공한다.
-- 저장 성공 후 이동 전 상태는 `role="status"`로 알린다.
+- 저장 성공은 이동 전과 destination의 1회성 `role="status"`로 알린다.
 - 폐기 확인 panel은 제목과 명시적 `계속 수정`, `변경사항 버리기` 버튼을 제공한다.
 - 모든 행동은 키보드로 실행할 수 있고 최소 44px target을 유지한다.
 
