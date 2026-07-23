@@ -27,13 +27,15 @@
 
 증거(2026-07-23 U4·U6 통합): lint·typecheck, unit 41개 파일·427건, integration 7개 파일·73건, production build와 전체 Chromium E2E 24건이 통과했다. 첫 E2E 서버 시작은 sandbox `EPERM`이었고, 성공한 동일 build를 사용해 승인된 credential-free Playwright를 재실행했다.
 
+증거(2026-07-23 U7): lint·typecheck, unit 42개 파일·459건, integration 7개 파일·73건, `git diff --check`가 통과했다. `npm run test:e2e`의 production build는 통과했고 sandbox server bind는 `EPERM`으로 중단됐다. 같은 build에서 승인된 credential-free `npx playwright test`는 Chromium 24건을 통과했다. self-review 뒤 `manual-profile-reset.spec.ts` focused Chromium 3건도 통과해 첫 completed ID의 ready detail 동일 record 복귀, old/new snapshot, 393×852 overflow, 외부 요청 0건을 검증했다.
+
 ### 핵심 사용자 과업 Gate
 
 - [x] Task 1A actual AI 문진·요약 확정·completed 저장
 - [x] Task 1B AI 비동의 manual 문진·기록 확인
 - [ ] Task 1B provider 실패 manual 문진·기록 확인
 - [x] Task 2 오늘 기록·clinician view
-- [ ] Task 3 과거 기록·profile edit·snapshot 보존
+- [x] Task 3 과거 기록·profile edit·snapshot 보존
 - [x] onboarding부터 clinician view까지 동일 `interviewId` 연속 여정
 
 ### 안전·개인정보·접근성 Gate

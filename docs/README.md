@@ -30,6 +30,7 @@
 24. [U4 공개 AI 안전·근거·완료 여정 구현 계획](./superpowers/plans/2026-07-22-u4-public-ai-safety-evidence-completion-implementation-plan.md) — mock·actual 검증 완료
 25. [U6 기록·의료진 보기 설계](./superpowers/specs/2026-07-23-u6-records-clinician-view-design.md) — 구현 완료
 26. [U6 기록·의료진 보기 구현 계획](./superpowers/plans/2026-07-23-u6-records-clinician-view-implementation-plan.md) — 검증·로컬 통합 완료
+27. U7 기록 상세→프로필 수정→동일 기록 복귀 공개 경로 — `tests/e2e/manual-profile-reset.spec.ts`와 final Chromium 24건으로 검증 완료
 
 현재 목표는 AI Persona UT 실행 도구가 아니라 실제 문진 앱을 만드는 것이다. 공개 제품 흐름에는 Persona 선택·주입을 노출하지 않으며 향후 별도 설계에서만 검토한다. 기존 U1 검증 harness와 자동화 test는 합성·비식별 데이터만 사용한다. 실제 환자 정보와 실제 음성 입력은 개발·검증 범위가 아니다.
 
