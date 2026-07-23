@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  isProfileDraftDirty,
   profileBundleToDraft,
   validateProfileDraft,
 } from "@/features/profile/profile-draft";
@@ -36,6 +37,28 @@ const SYNTHETIC_PROFILE_BUNDLE: ProfileBundleV1 = {
 };
 
 describe("profile draft", () => {
+  it("동일 draft는 clean이다", () => {
+    const baseline = profileBundleToDraft(SYNTHETIC_PROFILE_BUNDLE);
+
+    expect(isProfileDraftDirty(baseline, structuredClone(baseline))).toBe(
+      false,
+    );
+  });
+
+  it.each([
+    ["displayName", "수정한 사용자"],
+    ["conditions", "합성 변경 질환"],
+    ["conditionsUnknown", true],
+    ["smokingStatus", "yes"],
+    ["heightCm", "171"],
+  ] as const)("%s 변경을 dirty로 판정한다", (key, value) => {
+    const baseline = profileBundleToDraft(SYNTHETIC_PROFILE_BUNDLE);
+
+    expect(isProfileDraftDirty(baseline, { ...baseline, [key]: value })).toBe(
+      true,
+    );
+  });
+
   it("저장 record를 손실 없이 편집 draft로 바꾼다", () => {
     const draft = profileBundleToDraft(SYNTHETIC_PROFILE_BUNDLE);
 

@@ -24,6 +24,37 @@ export type ProfileDraftValidation =
   | { ok: true; value: SaveProfileBundleInputV1 }
   | { ok: false; errors: ProfileDraftErrors };
 
+const PROFILE_DRAFT_KEYS = [
+  "displayName",
+  "birthDate",
+  "sex",
+  "conditions",
+  "conditionsUnknown",
+  "medications",
+  "medicationsUnknown",
+  "allergies",
+  "allergiesUnknown",
+  "familyHistory",
+  "familyHistoryUnknown",
+  "medicalHistory",
+  "medicalHistoryUnknown",
+  "surgicalHistory",
+  "surgicalHistoryUnknown",
+  "smokingStatus",
+  "smokingDetails",
+  "alcoholStatus",
+  "alcoholDetails",
+  "heightCm",
+  "weightKg",
+] as const satisfies readonly (keyof ProfileDraft)[];
+
+export function isProfileDraftDirty(
+  baseline: ProfileDraft,
+  current: ProfileDraft,
+): boolean {
+  return PROFILE_DRAFT_KEYS.some((key) => baseline[key] !== current[key]);
+}
+
 function listToText(list: KnownTextListV1): string {
   return list.state === "known" ? list.values.join("\n") : "";
 }
