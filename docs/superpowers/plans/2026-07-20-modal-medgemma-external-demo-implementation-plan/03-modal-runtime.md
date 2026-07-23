@@ -67,7 +67,7 @@ Modal Secret `medgemma-hf`에는 image build 전용 `HF_TOKEN`만 둔다. CPU ga
 def infer(request: InferenceRequest) -> dict[str, object]: ...
 ```
 
-gate는 Pydantic 검증 → Dict quota 예약 → GPU `generate.remote()` 순서만 허용한다. quota 초과는 GPU 호출 없이 429, 비활성 kill switch는 503, schema 오류는 400으로 일반화한다. GPU 함수는 `gpu="T4"`, `min_containers=0`, `max_containers=1`, `scaledown_window=60`, `timeout=60`을 유지한다. scale-to-zero cold start를 수용하는 비용 우선 계약으로 CPU web 함수 timeout은 85초, Next provider 기본 timeout은 75초·허용 상한은 85초로 둔다.
+gate는 Pydantic 검증 → Dict quota 예약 → GPU `generate.remote()` 순서만 허용한다. quota 초과는 GPU 호출 없이 429, 비활성 kill switch는 503, schema 오류는 400으로 일반화한다. GPU 함수는 `gpu="T4"`, `min_containers=0`, `max_containers=1`, `scaledown_window=60`, `timeout=60`을 유지한다. scale-to-zero cold start를 수용하는 비용 우선 계약으로 CPU web 함수 timeout은 180초, Next provider 기본 timeout은 75초·허용 상한은 180초로 둔다.
 
 `quota_smoke_app.py`는 같은 `reserve_quota`를 호출하지만 GPU 함수와 모델 secret을 포함하지 않는 인증 test app(`medgemma-quota-smoke`)이다. 운영 app에서 import하거나 배포하지 않는다.
 

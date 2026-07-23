@@ -6,11 +6,13 @@
 
 - 모델: `google/medgemma-1.5-4b-it`
 - 실행: Modal custom App의 인증된 HTTPS endpoint
+- 배포 앱: Modal `main`의 `medgemma-external-demo`
 - 최초 GPU 후보: NVIDIA T4 1개
-- GPU 승격: T4에서 메모리 부족, warm response 15초 초과 또는 cold response 60초 초과가 반복되면 L4 1개로 변경
+- GPU 승격: T4에서 메모리 부족, warm response 15초 초과 또는 cold response 75초 초과가 반복되면 L4 1개로 변경
 - autoscaling: `min_containers=0`, `max_containers=1`, 초기 scale-down window 60초
-- 모델 파일: 배포 Image 또는 승인된 model cache에 준비해 cold start 다운로드를 피함
-- Hugging Face: 모델 약관을 승인한 전용 fine-grained read token을 Modal Secret으로 주입
+- 모델 파일: image build 때 `/models/medgemma-1.5-4b-it`에 내려받고 runtime은 `local_files_only=True`로만 로드
+- Hugging Face: 모델 약관을 승인한 fine-grained read token을 build 전용 Modal Secret `medgemma-hf`의 `HF_TOKEN`으로만 주입
+- Runtime Secret: `medgemma-runtime`에는 `MEDGEMMA_ACTUAL_DISABLED=1|0`만 두고 GPU 함수에는 주입하지 않음
 - 로그: 입력·출력, prompt, 증상, 질문과 요약 본문 기록 금지
 
 공개 Next.js 호스트와 GPU 사이에는 인증된 Modal CPU gate를 둔다. CPU gate는 `max_containers=1`, 동시 입력 1개로 직렬화하고 영속 Modal Dict에서 session·IP·일일 quota를 예약한 뒤에만 GPU 함수를 호출한다. Dict에는 HMAC 식별자와 시간 bucket별 숫자만 저장하고 문진 payload는 저장하지 않는다.
@@ -40,7 +42,7 @@ Modal endpoint는 무인증 공개 모드로 배포하지 않는다. Next.js Rou
 
 ## 3. Cold start와 오류 처리
 
-기본 요청 deadline은 60초다. cold start와 warm response를 구분해 측정하며 화면에는 단계 수 대신 `다음 질문을 준비하고 있어요`를 표시한다.
+Next provider 기본 요청 deadline은 75초이고 허용 상한은 180초다. 공개 UI actual harness와 Modal CPU web 함수는 cold model load와 왕복을 포함해 180초를 사용하며, 단일 GPU generation 함수는 60초 제한을 유지한다. cold start와 warm response를 구분해 측정하며 화면에는 단계 수 대신 `다음 질문을 준비하고 있어요`를 표시한다.
 
 1. `429`, `503`과 일시적 transport 오류만 최대 1회 재시도한다.
 2. `401`, `403`, schema 오류와 금지 출력은 재시도하지 않는다.
@@ -55,8 +57,8 @@ Modal endpoint는 무인증 공개 모드로 배포하지 않는다. Next.js Rou
 - `max_containers=1`로 비용 폭증을 제한한다.
 - 고정 warm container는 기본적으로 사용하지 않는다.
 - 활성 GPU 시간, cold start 횟수와 요청당 비용을 payload 없이 측정한다.
-- 월 $30을 초기 목표 상한으로 두고 도달 시 사용자가 재승인할 때까지 actual provider를 중단한다.
-- Modal Workspace budget을 월 $30 하드 캡으로 설정해 애플리케이션 kill switch 실패와 별개로 비용 상한을 강제한다.
+- 월 $10을 현재 목표 상한으로 두고 도달 시 사용자가 재승인할 때까지 actual provider를 중단한다.
+- Modal Workspace budget을 월 $10 하드 캡으로 설정해 애플리케이션 kill switch 실패와 별개로 비용 상한을 강제한다.
 - T4에서 시작하며 검증 근거 없이 L4·A10 이상으로 올리지 않는다.
 
 ## 5. 자동 검증
@@ -83,6 +85,6 @@ Modal endpoint는 무인증 공개 모드로 배포하지 않는다. Next.js Rou
 - 질문이 한 문장·한 의도·쉬운 한국어 validator 통과
 - 질문 수가 고정 단계로 표시되지 않음
 - 질문·요약이 versioned schema 통과
-- cold 60초, warm 15초 안에 응답
+- direct actual은 cold 75초, warm 15초 안에 응답
 - 실패 시 답변을 유지하고 수동 흐름으로 완주
 - 운영 증거에 prompt·답변·질문·요약 본문이 없음

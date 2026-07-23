@@ -92,7 +92,7 @@ flowchart LR
   ServerValidation --> Manual["수동 질문·결정론적 요약 fallback"]
 ```
 
-브라우저는 Modal을 직접 호출하지 않는다. Modal 인증정보와 Hugging Face token은 Next.js 또는 Modal server secret으로만 관리하며 client bundle, 브라우저 로그와 IndexedDB에 저장하지 않는다.
+브라우저는 Modal을 직접 호출하지 않는다. Modal proxy 인증정보는 Next.js server-only 환경에서 관리한다. Hugging Face token은 Modal image build 전용 `medgemma-hf` Secret에만 두며, 모델을 image에 내려받은 뒤 실제 질문·요약 요청에는 전달하지 않는다. 어떤 credential도 client bundle, 브라우저 로그와 IndexedDB에 저장하지 않는다.
 
 공개 웹 호스팅은 Modal 추론 배포와 분리한다. 이 설계는 표준 Node.js Route Handler와 server-only 환경 변수를 지원하는 호스트를 전제로 하며, 구체적인 호스팅 사업자는 별도 배포 결정에서 확정한다.
 
@@ -111,7 +111,7 @@ Modal 요청과 응답은 versioned JSON schema를 사용한다. Provider 출력
 
 Modal 배포, 공개 익명 데모 보안, cold start, 비용과 검증의 상세 계약은 [Modal 런타임·보안·검증](./2026-07-20-modal-medgemma-external-demo-design/01-modal-runtime-security-verification.md)을 따른다.
 
-핵심 경계는 T4 1개부터 시작하는 scale-to-zero, 인증된 endpoint, 최대 컨테이너 1개, 60초 deadline, 1회 제한 재시도와 수동 문진 fallback이다. 공개 링크는 인증 수단이 아니므로 익명 session·Origin·rate limit·전체 일일 상한과 server-side kill switch를 사용한다.
+핵심 경계는 T4 1개부터 시작하는 scale-to-zero, 인증된 endpoint, 최대 컨테이너 1개, GPU generation 60초 제한, Next provider 기본 75초·허용 상한 180초, 1회 제한 재시도와 수동 문진 fallback이다. 공개 링크는 인증 수단이 아니므로 익명 session·Origin·rate limit·전체 일일 상한과 server-side kill switch를 사용한다.
 
 ## 8. 문서 변경 범위
 

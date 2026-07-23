@@ -30,7 +30,7 @@ export interface MedGemmaProvider {
 
 - [x] **Step 1: adapter mapping 테스트를 작성한다**
 
-`Modal-Key`/`Modal-Secret`, body allowlist, 비용 우선 기본 75초 abort와 85초 상한, `401/403` no-retry, `429/503` 1회 retry, invalid JSON/schema no-retry, client에 일반화한 오류만 반환하는지 fetch mock으로 검증한다.
+`Modal-Key`/`Modal-Secret`, body allowlist, 비용 우선 기본 75초 abort와 180초 허용 상한, `401/403` no-retry, `429/503` 1회 retry, invalid JSON/schema no-retry, client에 일반화한 오류만 반환하는지 fetch mock으로 검증한다.
 
 - [x] **Step 2: Route Handler guard 테스트를 작성한다**
 

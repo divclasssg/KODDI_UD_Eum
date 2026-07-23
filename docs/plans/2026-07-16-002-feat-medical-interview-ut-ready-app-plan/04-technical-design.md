@@ -149,7 +149,7 @@ tests/
 ```text
 MEDGEMMA_MODE=mock|modal
 MEDGEMMA_MODEL_ID=google/medgemma-1.5-4b-it
-MEDGEMMA_TIMEOUT_MS=60000
+MEDGEMMA_TIMEOUT_MS=75000
 MEDGEMMA_MAX_REQUEST_BYTES=8192
 MODAL_MEDGEMMA_ENDPOINT_URL=
 MODAL_PROXY_TOKEN_ID=
@@ -160,7 +160,7 @@ MEDGEMMA_ACTUAL_DISABLED=1
 INTERVIEW_FIXTURE_MODE=0
 ```
 
-- Modal proxy token과 Hugging Face token은 server secret으로만 관리하고 저장소에 두지 않는다.
+- Modal proxy token은 Next.js server-only 환경에서, Hugging Face token은 Modal image build 전용 `medgemma-hf` Secret에서 관리하며 저장소에 두지 않는다.
 - 환경 변수와 credential은 client bundle, browser log, IndexedDB에 저장하지 않는다.
 - package scripts는 개발·production server를 `127.0.0.1`에 bind한다.
 - AI Route Handler는 Node.js runtime에서 실행한다. model version, endpoint, request·response schema, payload limit을 deployment profile로 동결한다.

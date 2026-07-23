@@ -54,7 +54,9 @@
 ### 문서·정리 Gate
 
 - [x] README에 mock/actual 실행법 기록
-- [ ] `.env.example`과 실제 환경 계약 일치
+- [x] `.env.example`과 실제 환경 계약 일치
 - [ ] dead route·임시 기능·폐기 실험 코드 제거
 - [x] 실패·미완료·범위 제외 항목 기록
 - [ ] Day 7에는 신규 기능을 추가하지 않음
+
+증거(2026-07-23 문서 동기화): `.env.example`의 기본 provider timeout을 구현 기본값 75초와 일치시켰다. 공개 UI actual 전용 180초 상한, Modal web 180초·GPU generation 60초 경계와 Hugging Face build Secret 책임을 운영 문서에 분리해 기록했다.

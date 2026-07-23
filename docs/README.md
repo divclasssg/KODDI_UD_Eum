@@ -30,13 +30,23 @@
 24. [U4 공개 AI 안전·근거·완료 여정 구현 계획](./superpowers/plans/2026-07-22-u4-public-ai-safety-evidence-completion-implementation-plan.md) — mock·actual 검증 완료
 25. [U6 기록·의료진 보기 설계](./superpowers/specs/2026-07-23-u6-records-clinician-view-design.md) — 구현 완료
 26. [U6 기록·의료진 보기 구현 계획](./superpowers/plans/2026-07-23-u6-records-clinician-view-implementation-plan.md) — 검증·로컬 통합 완료
-27. U7 기록 상세→프로필 수정→동일 기록 복귀 공개 경로 — unit 469건·integration 73건, `tests/e2e/manual-profile-reset.spec.ts` focused Chromium 4건과 final Chromium 25건으로 검증 완료
+27. [U7 기록 상세→프로필 수정→동일 기록 복귀 설계](./superpowers/specs/2026-07-23-u7-record-profile-edit-design.md), [구현 계획](./superpowers/plans/2026-07-23-u7-record-profile-edit-implementation-plan.md) — unit 469건·integration 73건, focused Chromium 4건과 final Chromium 25건으로 검증 완료
 
 현재 목표는 AI Persona UT 실행 도구가 아니라 실제 문진 앱을 만드는 것이다. 공개 제품 흐름에는 Persona 선택·주입을 노출하지 않으며 향후 별도 설계에서만 검토한다. 기존 U1 검증 harness와 자동화 test는 합성·비식별 데이터만 사용한다. 실제 환자 정보와 실제 음성 입력은 개발·검증 범위가 아니다.
 
 ## Modal 검증 명령
 
-- credential 없는 mock·로컬 검증: `npm run lint`, `npm run typecheck`, `npm run test:unit`, `npm run test:e2e`, `npm run build`, `.venv/bin/python -m pytest tests/modal`
+### 현재 배포·Secret 상태
+
+- MedGemma는 개발 컴퓨터에 모델 가중치를 설치하는 방식이 아니다. `google/medgemma-1.5-4b-it`를 Modal image의 `/models/medgemma-1.5-4b-it`에 내려받아 런타임에서 `local_files_only=True`로 로드한다.
+- Hugging Face token은 image build·rebuild 때만 Modal Secret `medgemma-hf`의 `HF_TOKEN`으로 사용한다. 실제 질문·요약 요청은 Hugging Face가 아니라 인증된 Modal endpoint를 호출한다.
+- 2026-07-23 읽기 전용 확인에서 Modal `main`의 `medgemma-external-demo` 앱은 `deployed`, 실행 task는 0이었다. `medgemma-hf`와 `medgemma-runtime` Secret 이름은 존재하지만 값·현재 token 유효성은 조회하지 않았다.
+- 마지막 actual 검증 뒤 `medgemma-runtime`의 kill switch를 `MEDGEMMA_ACTUAL_DISABLED=1`로 재배포하고 인증 요청 503 `actual-disabled`, container 0을 확인했다. Secret 변경 뒤에는 반드시 재배포한다. actual 활성화 배포는 승인된 합성 요청의 성공으로 확인하고, 검증 종료 뒤 `1`로 재잠근 배포는 인증 요청 503과 container 0으로 확인한다.
+- Next provider 기본 timeout은 75초, 허용 상한과 공개 UI actual harness는 180초다. Modal CPU web 함수는 180초, 단일 GPU generation 함수는 60초 제한을 유지한다.
+
+### 명령
+
+- credential 없는 mock·로컬 검증: `npm run lint`, `npm run typecheck`, `npm run test:unit`, `npm run test:e2e`, `.venv/bin/python -m pytest tests/modal`. `npm run test:e2e`가 production build를 포함하므로 같은 tree에서 `npm run build`를 중복 실행하지 않는다.
 - actual harness 비활성 확인: `npm run test:actual` 실행 시 테스트 5건이 skip되어야 한다.
 - actual 검증: 사용자가 Hugging Face 약관·Modal Secret·proxy token·Workspace hard cap을 직접 준비하고 비용 발생을 승인한 뒤에만 `RUN_MEDGEMMA_ACTUAL=1 npm run test:actual`을 실행한다. 현재 Workspace hard cap은 `$10`이다.
 - 공개 AI 실제 응답 검증: 별도 비용 승인과 kill switch 복구 준비 뒤에만 `RUN_MEDGEMMA_ROUTE_ACTUAL=1 npm run test:route-actual -- tests/actual/public-ai-interview.actual.spec.ts`를 실행한다. 합성 입력으로 실제 질문 1회와 실제 요약 1회만 검증한다.
