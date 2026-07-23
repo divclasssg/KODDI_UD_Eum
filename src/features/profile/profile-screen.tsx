@@ -23,6 +23,7 @@ type ProfileScreenProps = {
   load: () => Promise<ProfileBundleV1 | undefined>;
   save: (input: SaveProfileBundleInputV1) => Promise<ProfileBundleV1>;
   navigate: (path: string) => void;
+  returnTo?: string;
   now?: () => Date;
 };
 
@@ -226,8 +227,19 @@ async function saveWithBrowserDatabase(input: SaveProfileBundleInputV1) {
   }
 }
 
-export function ProfileScreenWithRouter() {
+export function ProfileScreenWithRouter({
+  returnTo,
+}: {
+  returnTo?: string;
+}) {
   const router = useRouter();
   const navigate = useCallback((path: string) => router.push(path), [router]);
-  return <ProfileScreen load={loadWithBrowserDatabase} save={saveWithBrowserDatabase} navigate={navigate} />;
+  return (
+    <ProfileScreen
+      load={loadWithBrowserDatabase}
+      save={saveWithBrowserDatabase}
+      navigate={navigate}
+      returnTo={returnTo}
+    />
+  );
 }
