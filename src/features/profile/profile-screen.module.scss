@@ -63,6 +63,25 @@
   gap: 8px;
 }
 
+.formSection,
+.confirmPanel {
+  display: grid;
+  gap: 16px;
+}
+
+.notice {
+  padding: 12px;
+  border-radius: var(--radius-md);
+  color: var(--color-text-brand);
+  background: var(--color-bg-secondary);
+}
+
+.confirmPanel {
+  padding: 20px;
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-lg);
+}
+
 .checkbox,
 .options label {
   min-height: var(--size-touch-target-min);

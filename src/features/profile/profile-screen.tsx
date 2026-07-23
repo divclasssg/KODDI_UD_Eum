@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { openMedicalInterviewDatabase } from "@/lib/db/database";
@@ -13,6 +13,7 @@ import {
 
 import {
   profileBundleToDraft,
+  isProfileDraftDirty,
   validateProfileDraft,
   type ProfileDraft,
   type ProfileDraftErrors,
@@ -42,15 +43,30 @@ export function ProfileScreen({
   load,
   save,
   navigate,
+  returnTo,
   now = () => new Date(),
 }: ProfileScreenProps) {
   const [loadState, setLoadState] = useState<LoadState>("loading");
   const [draft, setDraft] = useState<ProfileDraft>();
+  const [baseline, setBaseline] = useState<ProfileDraft>();
   const [errors, setErrors] = useState<ProfileDraftErrors>({});
   const [pending, setPending] = useState(false);
   const [saveError, setSaveError] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [discardConfirm, setDiscardConfirm] = useState(false);
   const [attempt, setAttempt] = useState(0);
+  const mounted = useRef(true);
+  const destination = returnTo ?? "/home";
+  const dirty = Boolean(
+    baseline && draft && isProfileDraftDirty(baseline, draft),
+  );
+
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -61,7 +77,9 @@ export function ProfileScreen({
           navigate("/onboarding");
           return;
         }
-        setDraft(profileBundleToDraft(bundle));
+        const nextDraft = profileBundleToDraft(bundle);
+        setBaseline(nextDraft);
+        setDraft(structuredClone(nextDraft));
         setLoadState("ready");
       })
       .catch(() => {
@@ -71,6 +89,15 @@ export function ProfileScreen({
       active = false;
     };
   }, [attempt, load, navigate]);
+
+  useEffect(() => {
+    if (!dirty || pending) return;
+    const warn = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [dirty, pending]);
 
   const update = <Key extends keyof ProfileDraft>(
     key: Key,
@@ -96,13 +123,31 @@ export function ProfileScreen({
     setSaveError(false);
     try {
       const bundle = await save(validation.value);
-      setDraft(profileBundleToDraft(bundle));
+      if (!mounted.current) return;
+      const nextDraft = profileBundleToDraft(bundle);
+      setBaseline(nextDraft);
+      setDraft(structuredClone(nextDraft));
       setSaved(true);
+      navigate(destination);
     } catch {
-      setSaveError(true);
+      if (mounted.current) setSaveError(true);
     } finally {
-      setPending(false);
+      if (mounted.current) setPending(false);
     }
+  };
+
+  const cancel = () => {
+    if (pending) return;
+    if (dirty) {
+      setDiscardConfirm(true);
+      return;
+    }
+    navigate(destination);
+  };
+
+  const discard = () => {
+    setDiscardConfirm(false);
+    navigate(destination);
   };
 
   if (loadState === "loading") {
@@ -127,55 +172,73 @@ export function ProfileScreen({
         <p className={styles.eyebrow}>내 정보</p>
         <h1>프로필 수정</h1>
         <p>문진에 사용할 기본정보와 의료정보를 확인해 주세요.</p>
+        {destination !== "/home" && (
+          <p className={styles.notice}>과거 기록은 변경되지 않아요.</p>
+        )}
 
-        <Field label="이름" error={errors.displayName}>
-          <input id="profile-display-name" maxLength={40} value={draft.displayName} onChange={(event) => update("displayName", event.target.value)} />
-        </Field>
-        <Field label="생년월일" error={errors.birthDate}>
-          <input id="profile-birth-date" type="date" value={draft.birthDate} onChange={(event) => update("birthDate", event.target.value)} />
-        </Field>
-        <fieldset>
-          <legend>성별</legend>
-          <div className={styles.options}>
-            {(["female", "male", "other", "unknown"] as const).map((value) => (
-              <label key={value}>
-                <input type="radio" name="profile-sex" checked={draft.sex === value} onChange={() => update("sex", value)} />
-                {{ female: "여성", male: "남성", other: "기타", unknown: "답하지 않음" }[value]}
+        <section className={styles.formSection} aria-labelledby="basic-profile-title">
+          <h2 id="basic-profile-title">기본정보</h2>
+          <Field label="이름" error={errors.displayName}>
+            <input id="profile-display-name" maxLength={40} value={draft.displayName} onChange={(event) => update("displayName", event.target.value)} />
+          </Field>
+          <Field label="생년월일" error={errors.birthDate}>
+            <input id="profile-birth-date" type="date" value={draft.birthDate} onChange={(event) => update("birthDate", event.target.value)} />
+          </Field>
+          <fieldset>
+            <legend>성별</legend>
+            <div className={styles.options}>
+              {(["female", "male", "other", "unknown"] as const).map((value) => (
+                <label key={value}>
+                  <input type="radio" name="profile-sex" checked={draft.sex === value} onChange={() => update("sex", value)} />
+                  {{ female: "여성", male: "남성", other: "기타", unknown: "답하지 않음" }[value]}
+                </label>
+              ))}
+            </div>
+          </fieldset>
+        </section>
+
+        <section className={styles.formSection} aria-labelledby="medical-profile-title">
+          <h2 id="medical-profile-title">의료정보</h2>
+          {LIST_FIELDS.map(([valueKey, unknownKey, label]) => (
+            <div className={styles.field} key={valueKey}>
+              <label htmlFor={`profile-${valueKey}`}>{label}</label>
+              <textarea id={`profile-${valueKey}`} disabled={draft[unknownKey]} value={draft[valueKey]} onChange={(event) => update(valueKey, event.target.value)} />
+              <label className={styles.checkbox}>
+                <input type="checkbox" checked={draft[unknownKey]} onChange={(event) => update(unknownKey, event.target.checked)} />
+                잘 모르겠어요
               </label>
-            ))}
+            </div>
+          ))}
+
+          <LifestyleField label="흡연을 하시나요?" name="smoking" state={draft.smokingStatus} details={draft.smokingDetails} onStateChange={(value) => update("smokingStatus", value)} onDetailsChange={(value) => update("smokingDetails", value)} />
+          <LifestyleField label="음주를 하시나요?" name="alcohol" state={draft.alcoholStatus} details={draft.alcoholDetails} onStateChange={(value) => update("alcoholStatus", value)} onDetailsChange={(value) => update("alcoholDetails", value)} />
+
+          <div className={styles.measurements}>
+            <Field label="키(cm, 선택)" error={errors.heightCm}>
+              <input id="profile-height" type="number" value={draft.heightCm} onChange={(event) => update("heightCm", event.target.value)} />
+            </Field>
+            <Field label="몸무게(kg, 선택)" error={errors.weightKg}>
+              <input id="profile-weight" type="number" value={draft.weightKg} onChange={(event) => update("weightKg", event.target.value)} />
+            </Field>
           </div>
-        </fieldset>
-
-        <h2>의료정보</h2>
-        {LIST_FIELDS.map(([valueKey, unknownKey, label]) => (
-          <div className={styles.field} key={valueKey}>
-            <label htmlFor={`profile-${valueKey}`}>{label}</label>
-            <textarea id={`profile-${valueKey}`} disabled={draft[unknownKey]} value={draft[valueKey]} onChange={(event) => update(valueKey, event.target.value)} />
-            <label className={styles.checkbox}>
-              <input type="checkbox" checked={draft[unknownKey]} onChange={(event) => update(unknownKey, event.target.checked)} />
-              잘 모르겠어요
-            </label>
-          </div>
-        ))}
-
-        <LifestyleField label="흡연을 하시나요?" name="smoking" state={draft.smokingStatus} details={draft.smokingDetails} onStateChange={(value) => update("smokingStatus", value)} onDetailsChange={(value) => update("smokingDetails", value)} />
-        <LifestyleField label="음주를 하시나요?" name="alcohol" state={draft.alcoholStatus} details={draft.alcoholDetails} onStateChange={(value) => update("alcoholStatus", value)} onDetailsChange={(value) => update("alcoholDetails", value)} />
-
-        <div className={styles.measurements}>
-          <Field label="키(cm, 선택)" error={errors.heightCm}>
-            <input id="profile-height" type="number" value={draft.heightCm} onChange={(event) => update("heightCm", event.target.value)} />
-          </Field>
-          <Field label="몸무게(kg, 선택)" error={errors.weightKg}>
-            <input id="profile-weight" type="number" value={draft.weightKg} onChange={(event) => update("weightKg", event.target.value)} />
-          </Field>
-        </div>
+        </section>
 
         {saveError && <p role="alert">저장하지 못했어요. 입력한 내용은 그대로 있어요.</p>}
         {saved && <p role="status">변경사항을 저장했어요.</p>}
         <button className={styles.primary} type="submit" disabled={pending}>
           {pending ? "저장하고 있어요" : saveError ? "다시 저장" : "변경사항 저장"}
         </button>
-        <button type="button" disabled={pending} onClick={() => navigate("/home")}>홈으로</button>
+        <button type="button" disabled={pending} onClick={cancel}>취소하고 돌아가기</button>
+        {discardConfirm && (
+          <section className={styles.confirmPanel} aria-labelledby="discard-title">
+            <h2 id="discard-title">변경사항을 버릴까요?</h2>
+            <p>저장하지 않은 내용은 복구할 수 없어요.</p>
+            <button type="button" onClick={() => setDiscardConfirm(false)}>
+              계속 수정
+            </button>
+            <button type="button" onClick={discard}>변경사항 버리기</button>
+          </section>
+        )}
       </form>
     </main>
   );
