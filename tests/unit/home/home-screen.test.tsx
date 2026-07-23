@@ -1,9 +1,42 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { HomeScreen } from "@/features/home/home-screen";
 
 describe("HomeScreen", () => {
+  beforeEach(() => {
+    sessionStorage.clear();
+  });
+
+  it("직접 프로필 저장 직후 성공 상태를 한 번 표시한다", async () => {
+    sessionStorage.setItem("koddi.profile-save-success", "true");
+    const props = {
+      loadState: () =>
+        Promise.resolve({
+          status: "ready" as const,
+          displayName: "테스트 사용자",
+          aiTransfer: "declined" as const,
+        }),
+      navigate: vi.fn(),
+    };
+
+    const { unmount } = render(<HomeScreen {...props} />);
+
+    const status = await screen.findByText("변경사항을 저장했어요.");
+    expect(status).toHaveAttribute("role", "status");
+    expect(status).toBeVisible();
+    expect(sessionStorage.getItem("koddi.profile-save-success")).toBeNull();
+
+    unmount();
+    render(<HomeScreen {...props} />);
+    await screen.findByRole("heading", {
+      name: "테스트 사용자님, 안녕하세요",
+    });
+    expect(
+      screen.queryByText("변경사항을 저장했어요."),
+    ).not.toBeInTheDocument();
+  });
+
   it("AI 전송 거부 상태에서는 수동 문진을 기본 행동으로 표시한다", async () => {
     const navigate = vi.fn();
     render(

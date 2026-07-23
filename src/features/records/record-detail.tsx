@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { buildProfileEditHref } from "@/features/profile/profile-navigation";
+import { useProfileSaveSuccessAnnouncement } from "@/features/profile/profile-save-announcement";
 
 import {
   loadRecordDetail,
@@ -121,6 +122,7 @@ export function RecordDetailScreen({
   const navigateTo = navigate ?? navigateWithRouter;
   const [state, setState] = useState<ScreenState>({ status: "loading" });
   const [attempt, setAttempt] = useState(0);
+  const profileSaved = useProfileSaveSuccessAnnouncement();
 
   useEffect(() => {
     let active = true;
@@ -149,6 +151,12 @@ export function RecordDetailScreen({
   return (
     <main className={styles.page}>
       <section className={styles.card} aria-busy={state.status === "loading"}>
+        {profileSaved && (
+          <p className={styles.message} role="status">
+            변경사항을 저장했어요.
+          </p>
+        )}
+
         {state.status === "loading" && (
           <p className={styles.message} role="status">
             기록을 불러오고 있어요.

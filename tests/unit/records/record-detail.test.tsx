@@ -43,6 +43,28 @@ function renderState(state: RecordDetailState) {
 describe("RecordDetailScreen", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    sessionStorage.clear();
+  });
+
+  it("프로필 저장 직후 destination에서 성공 상태를 한 번 표시한다", async () => {
+    sessionStorage.setItem("koddi.profile-save-success", "true");
+
+    const { unmount } = renderState({
+      status: "ready",
+      record: COMPLETED_RECORD,
+    });
+
+    const status = await screen.findByText("변경사항을 저장했어요.");
+    expect(status).toHaveAttribute("role", "status");
+    expect(status).toBeVisible();
+    expect(sessionStorage.getItem("koddi.profile-save-success")).toBeNull();
+
+    unmount();
+    renderState({ status: "ready", record: COMPLETED_RECORD });
+    await screen.findByRole("heading", { name: "문진 기록" });
+    expect(
+      screen.queryByText("변경사항을 저장했어요."),
+    ).not.toBeInTheDocument();
   });
 
   it("요약, 원문, clinician link를 승인된 순서와 copy로 표시한다", async () => {

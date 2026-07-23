@@ -1,5 +1,6 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import userEvent from "@testing-library/user-event";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ProfileScreen } from "@/features/profile/profile-screen";
 import {
@@ -32,6 +33,10 @@ const SYNTHETIC_PROFILE_BUNDLE: ProfileBundleV1 = {
 };
 
 describe("ProfileScreen", () => {
+  beforeEach(() => {
+    sessionStorage.clear();
+  });
+
   it("기록에서 진입하면 과거 기록 불변 안내를 표시한다", async () => {
     render(
       <ProfileScreen
@@ -115,6 +120,7 @@ describe("ProfileScreen", () => {
     await waitFor(() =>
       expect(navigate).toHaveBeenCalledWith("/records/completed-record"),
     );
+    expect(sessionStorage.getItem("koddi.profile-save-success")).toBe("true");
   });
 
   it("저장 중에는 중복 제출하지 않는다", async () => {
@@ -142,6 +148,39 @@ describe("ProfileScreen", () => {
     fireEvent.click(submit);
 
     expect(save).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      resolveSave?.(SYNTHETIC_PROFILE_BUNDLE);
+    });
+  });
+
+  it("저장 중에는 제출한 draft의 모든 편집 control을 비활성화한다", async () => {
+    const user = userEvent.setup();
+    let resolveSave: ((bundle: ProfileBundleV1) => void) | undefined;
+    render(
+      <ProfileScreen
+        load={() => Promise.resolve(SYNTHETIC_PROFILE_BUNDLE)}
+        save={() =>
+          new Promise<ProfileBundleV1>((resolve) => {
+            resolveSave = resolve;
+          })
+        }
+        navigate={vi.fn()}
+        now={() => new Date("2026-07-22T03:00:00.000Z")}
+      />,
+    );
+
+    const name = await screen.findByLabelText("이름");
+    fireEvent.change(name, { target: { value: "제출한 사용자" } });
+    fireEvent.click(screen.getByRole("button", { name: "변경사항 저장" }));
+
+    expect(name).toBeDisabled();
+    expect(screen.getByLabelText("생년월일")).toBeDisabled();
+    expect(screen.getByLabelText("답하지 않음")).toBeDisabled();
+    expect(screen.getAllByLabelText("잘 모르겠어요")[0]).toBeDisabled();
+    expect(screen.getByLabelText("키(cm, 선택)")).toBeDisabled();
+    await user.type(name, "저장 중 변경");
+    expect(name).toHaveValue("제출한 사용자");
+
     await act(async () => {
       resolveSave?.(SYNTHETIC_PROFILE_BUNDLE);
     });
@@ -272,6 +311,56 @@ describe("ProfileScreen", () => {
     consoleError.mockRestore();
   });
 
+  it("unmount 뒤 늦은 load 성공은 이동하거나 화면을 갱신하지 않는다", async () => {
+    let resolveLoad: ((bundle: ProfileBundleV1 | undefined) => void) | undefined;
+    const navigate = vi.fn();
+    const { unmount } = render(
+      <ProfileScreen
+        load={() =>
+          new Promise<ProfileBundleV1 | undefined>((resolve) => {
+            resolveLoad = resolve;
+          })
+        }
+        save={vi.fn()}
+        navigate={navigate}
+      />,
+    );
+
+    unmount();
+    await act(async () => {
+      resolveLoad?.(undefined);
+    });
+
+    expect(navigate).not.toHaveBeenCalled();
+    expect(screen.queryByText("프로필 수정")).not.toBeInTheDocument();
+  });
+
+  it("unmount 뒤 늦은 load 실패는 이동하거나 오류를 표시하지 않는다", async () => {
+    let rejectLoad: ((error: Error) => void) | undefined;
+    const navigate = vi.fn();
+    const { unmount } = render(
+      <ProfileScreen
+        load={() =>
+          new Promise<ProfileBundleV1 | undefined>((_, reject) => {
+            rejectLoad = reject;
+          })
+        }
+        save={vi.fn()}
+        navigate={navigate}
+      />,
+    );
+
+    unmount();
+    await act(async () => {
+      rejectLoad?.(new Error("합성 load 실패"));
+    });
+
+    expect(navigate).not.toHaveBeenCalled();
+    expect(
+      screen.queryByText("프로필을 불러오지 못했어요."),
+    ).not.toBeInTheDocument();
+  });
+
   it("저장 실패 뒤 입력을 유지하고 다시 저장할 수 있다", async () => {
     const save = vi
       .fn()
@@ -317,7 +406,12 @@ describe("ProfileScreen", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "변경사항 저장" }));
 
-    expect(await screen.findByText("만 14세 이상만 사용할 수 있어요.")).toBeVisible();
+    const error = await screen.findByText("만 14세 이상만 사용할 수 있어요.");
+    const birthDate = screen.getByLabelText("생년월일");
+
+    expect(error).toBeVisible();
+    expect(birthDate).toHaveAttribute("aria-invalid", "true");
+    expect(birthDate).toHaveAttribute("aria-describedby", error.id);
     expect(save).not.toHaveBeenCalled();
   });
 

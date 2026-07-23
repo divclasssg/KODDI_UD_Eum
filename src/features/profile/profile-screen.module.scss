@@ -69,6 +69,14 @@
   gap: 16px;
 }
 
+.editableFields {
+  min-width: 0;
+  padding: 0;
+  display: grid;
+  gap: 20px;
+  border: 0;
+}
+
 .notice {
   padding: 12px;
   border-radius: var(--radius-md);

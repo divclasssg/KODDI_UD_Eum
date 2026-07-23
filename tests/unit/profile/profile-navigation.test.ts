@@ -23,6 +23,11 @@ describe("profile navigation", () => {
     "https://example.com/records/id",
     String.raw`\records\id`,
     "/records/%E0%A4%A",
+    "/records/id\n",
+    "/records/id\u0000",
+    "/records/id%0A",
+    "/records/id%00",
+    "/records/id%5Cescape",
   ])("허용되지 않은 복귀 경로는 홈으로 보낸다", (value) => {
     expect(normalizeProfileReturnTo(value)).toBe("/home");
   });

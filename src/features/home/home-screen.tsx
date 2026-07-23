@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { useProfileSaveSuccessAnnouncement } from "@/features/profile/profile-save-announcement";
+
 import { loadHomeState, type HomeState } from "./load-home-state";
 import styles from "./home-screen.module.scss";
 
@@ -16,6 +18,7 @@ export function HomeScreen({ loadState, navigate }: HomeScreenProps) {
     status: "loading",
   });
   const [attempt, setAttempt] = useState(0);
+  const profileSaved = useProfileSaveSuccessAnnouncement();
 
   useEffect(() => {
     let active = true;
@@ -64,6 +67,7 @@ export function HomeScreen({ loadState, navigate }: HomeScreenProps) {
   return (
     <main className={styles.page}>
       <section className={styles.card}>
+        {profileSaved && <p role="status">변경사항을 저장했어요.</p>}
         <p className={styles.eyebrow}>나의 문진</p>
         <h1>{state.displayName}님, 안녕하세요</h1>
         <p>오늘 불편한 점을 차근차근 정리해 보세요.</p>

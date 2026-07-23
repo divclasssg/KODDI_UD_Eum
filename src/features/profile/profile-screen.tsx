@@ -1,6 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  cloneElement,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { useRouter } from "next/navigation";
 
 import { openMedicalInterviewDatabase } from "@/lib/db/database";
@@ -18,6 +24,7 @@ import {
   type ProfileDraft,
   type ProfileDraftErrors,
 } from "./profile-draft";
+import { markProfileSaveSuccess } from "./profile-save-announcement";
 import styles from "./profile-screen.module.scss";
 
 type ProfileScreenProps = {
@@ -128,6 +135,7 @@ export function ProfileScreen({
       setBaseline(nextDraft);
       setDraft(structuredClone(nextDraft));
       setSaved(true);
+      markProfileSaveSuccess();
       navigate(destination);
     } catch {
       if (mounted.current) setSaveError(true);
@@ -177,52 +185,54 @@ export function ProfileScreen({
           <p className={styles.notice}>과거 기록은 변경되지 않아요.</p>
         )}
 
-        <section className={styles.formSection} aria-labelledby="basic-profile-title">
-          <h2 id="basic-profile-title">기본정보</h2>
-          <Field label="이름" error={errors.displayName}>
-            <input id="profile-display-name" maxLength={40} value={draft.displayName} onChange={(event) => update("displayName", event.target.value)} />
-          </Field>
-          <Field label="생년월일" error={errors.birthDate}>
-            <input id="profile-birth-date" type="date" value={draft.birthDate} onChange={(event) => update("birthDate", event.target.value)} />
-          </Field>
-          <fieldset>
-            <legend>성별</legend>
-            <div className={styles.options}>
-              {(["female", "male", "other", "unknown"] as const).map((value) => (
-                <label key={value}>
-                  <input type="radio" name="profile-sex" checked={draft.sex === value} onChange={() => update("sex", value)} />
-                  {{ female: "여성", male: "남성", other: "기타", unknown: "답하지 않음" }[value]}
+        <fieldset className={styles.editableFields} disabled={pending}>
+          <section className={styles.formSection} aria-labelledby="basic-profile-title">
+            <h2 id="basic-profile-title">기본정보</h2>
+            <Field label="이름" error={errors.displayName}>
+              <input id="profile-display-name" maxLength={40} value={draft.displayName} onChange={(event) => update("displayName", event.target.value)} />
+            </Field>
+            <Field label="생년월일" error={errors.birthDate}>
+              <input id="profile-birth-date" type="date" value={draft.birthDate} onChange={(event) => update("birthDate", event.target.value)} />
+            </Field>
+            <fieldset>
+              <legend>성별</legend>
+              <div className={styles.options}>
+                {(["female", "male", "other", "unknown"] as const).map((value) => (
+                  <label key={value}>
+                    <input type="radio" name="profile-sex" checked={draft.sex === value} onChange={() => update("sex", value)} />
+                    {{ female: "여성", male: "남성", other: "기타", unknown: "답하지 않음" }[value]}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+          </section>
+
+          <section className={styles.formSection} aria-labelledby="medical-profile-title">
+            <h2 id="medical-profile-title">의료정보</h2>
+            {LIST_FIELDS.map(([valueKey, unknownKey, label]) => (
+              <div className={styles.field} key={valueKey}>
+                <label htmlFor={`profile-${valueKey}`}>{label}</label>
+                <textarea id={`profile-${valueKey}`} disabled={draft[unknownKey]} value={draft[valueKey]} onChange={(event) => update(valueKey, event.target.value)} />
+                <label className={styles.checkbox}>
+                  <input type="checkbox" checked={draft[unknownKey]} onChange={(event) => update(unknownKey, event.target.checked)} />
+                  잘 모르겠어요
                 </label>
-              ))}
+              </div>
+            ))}
+
+            <LifestyleField label="흡연을 하시나요?" name="smoking" state={draft.smokingStatus} details={draft.smokingDetails} onStateChange={(value) => update("smokingStatus", value)} onDetailsChange={(value) => update("smokingDetails", value)} />
+            <LifestyleField label="음주를 하시나요?" name="alcohol" state={draft.alcoholStatus} details={draft.alcoholDetails} onStateChange={(value) => update("alcoholStatus", value)} onDetailsChange={(value) => update("alcoholDetails", value)} />
+
+            <div className={styles.measurements}>
+              <Field label="키(cm, 선택)" error={errors.heightCm}>
+                <input id="profile-height" type="number" value={draft.heightCm} onChange={(event) => update("heightCm", event.target.value)} />
+              </Field>
+              <Field label="몸무게(kg, 선택)" error={errors.weightKg}>
+                <input id="profile-weight" type="number" value={draft.weightKg} onChange={(event) => update("weightKg", event.target.value)} />
+              </Field>
             </div>
-          </fieldset>
-        </section>
-
-        <section className={styles.formSection} aria-labelledby="medical-profile-title">
-          <h2 id="medical-profile-title">의료정보</h2>
-          {LIST_FIELDS.map(([valueKey, unknownKey, label]) => (
-            <div className={styles.field} key={valueKey}>
-              <label htmlFor={`profile-${valueKey}`}>{label}</label>
-              <textarea id={`profile-${valueKey}`} disabled={draft[unknownKey]} value={draft[valueKey]} onChange={(event) => update(valueKey, event.target.value)} />
-              <label className={styles.checkbox}>
-                <input type="checkbox" checked={draft[unknownKey]} onChange={(event) => update(unknownKey, event.target.checked)} />
-                잘 모르겠어요
-              </label>
-            </div>
-          ))}
-
-          <LifestyleField label="흡연을 하시나요?" name="smoking" state={draft.smokingStatus} details={draft.smokingDetails} onStateChange={(value) => update("smokingStatus", value)} onDetailsChange={(value) => update("smokingDetails", value)} />
-          <LifestyleField label="음주를 하시나요?" name="alcohol" state={draft.alcoholStatus} details={draft.alcoholDetails} onStateChange={(value) => update("alcoholStatus", value)} onDetailsChange={(value) => update("alcoholDetails", value)} />
-
-          <div className={styles.measurements}>
-            <Field label="키(cm, 선택)" error={errors.heightCm}>
-              <input id="profile-height" type="number" value={draft.heightCm} onChange={(event) => update("heightCm", event.target.value)} />
-            </Field>
-            <Field label="몸무게(kg, 선택)" error={errors.weightKg}>
-              <input id="profile-weight" type="number" value={draft.weightKg} onChange={(event) => update("weightKg", event.target.value)} />
-            </Field>
-          </div>
-        </section>
+          </section>
+        </fieldset>
 
         {saveError && <p role="alert">저장하지 못했어요. 입력한 내용은 그대로 있어요.</p>}
         {saved && <p role="status">변경사항을 저장했어요.</p>}
@@ -247,10 +257,14 @@ export function ProfileScreen({
 
 function Field({ label, error, children }: { label: string; error?: string; children: React.ReactElement<{ id: string; "aria-describedby"?: string; "aria-invalid"?: boolean }> }) {
   const errorId = `${children.props.id}-error`;
+  const input = cloneElement(children, {
+    "aria-describedby": error ? errorId : undefined,
+    "aria-invalid": error ? true : undefined,
+  });
   return (
     <div className={styles.field}>
       <label htmlFor={children.props.id}>{label}</label>
-      {children}
+      {input}
       {error && <p id={errorId} role="alert">{error}</p>}
     </div>
   );
