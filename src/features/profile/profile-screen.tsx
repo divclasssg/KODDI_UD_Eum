@@ -146,6 +146,7 @@ export function ProfileScreen({
   };
 
   const discard = () => {
+    if (pending) return;
     setDiscardConfirm(false);
     navigate(destination);
   };
@@ -233,10 +234,10 @@ export function ProfileScreen({
           <section className={styles.confirmPanel} aria-labelledby="discard-title">
             <h2 id="discard-title">변경사항을 버릴까요?</h2>
             <p>저장하지 않은 내용은 복구할 수 없어요.</p>
-            <button type="button" onClick={() => setDiscardConfirm(false)}>
+            <button type="button" disabled={pending} onClick={() => setDiscardConfirm(false)}>
               계속 수정
             </button>
-            <button type="button" onClick={discard}>변경사항 버리기</button>
+            <button type="button" disabled={pending} onClick={discard}>변경사항 버리기</button>
           </section>
         )}
       </form>
