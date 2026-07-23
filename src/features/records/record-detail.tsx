@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { buildProfileEditHref } from "@/features/profile/profile-navigation";
+
 import {
   loadRecordDetail,
   type RecordDetailState,
@@ -93,6 +95,12 @@ function ReadyRecordDetail({ record }: { record: RecordDetailViewModel }) {
       ) : (
         <p className={styles.message}>{record.clinicianBlockedMessage}</p>
       )}
+      <Link
+        className={styles.secondaryLink}
+        href={buildProfileEditHref(record.id)}
+      >
+        내 정보 수정
+      </Link>
       <Link className={styles.secondaryLink} href="/records">
         기록 목록으로
       </Link>

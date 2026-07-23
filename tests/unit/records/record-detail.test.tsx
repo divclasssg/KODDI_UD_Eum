@@ -68,6 +68,12 @@ describe("RecordDetailScreen", () => {
       screen.getByRole("link", { name: "의료진에게 보여주기" }),
     ).toHaveAttribute("href", "/records/completed-record/clinician");
     expect(
+      screen.getByRole("link", { name: "내 정보 수정" }),
+    ).toHaveAttribute(
+      "href",
+      "/profile?returnTo=%2Frecords%2Fcompleted-record",
+    );
+    expect(
       screen.getAllByRole("heading").map(({ textContent }) => textContent),
     ).toEqual([
       "문진 기록",
@@ -113,6 +119,26 @@ describe("RecordDetailScreen", () => {
       ).not.toBeInTheDocument();
     },
   );
+
+  it.each([
+    ["not-found", { status: "not-found" }],
+    ["corrupt", { status: "corrupt" }],
+    ["error", { status: "error" }],
+  ] as const)("%s 상태는 내 정보 수정 link를 표시하지 않는다", async (_, state) => {
+    renderState(state);
+
+    if (state.status === "error") {
+      await screen.findByRole("alert");
+    } else if (state.status === "not-found") {
+      await screen.findByText("기록을 찾을 수 없어요.");
+    } else {
+      await screen.findByText("이 기록을 안전하게 표시할 수 없어요.");
+    }
+
+    expect(
+      screen.queryByRole("link", { name: "내 정보 수정" }),
+    ).not.toBeInTheDocument();
+  });
 
   it("not-found와 corrupt는 의료 내용을 노출하지 않는다", async () => {
     const { rerender } = renderState({ status: "not-found" });

@@ -1159,12 +1159,45 @@ describe("Interview repository", () => {
         updatedAt: toUtcTimestamp("2026-07-22T01:04:00.000Z"),
       },
     });
+    const second = await repository.create({
+      ...SYNTHETIC_INTERVIEW_INPUT,
+      id: "interview-after-profile-edit",
+    });
+    const secondProgressInput = {
+      ...SYNTHETIC_PROGRESS_INPUT,
+      appendedMessages: SYNTHETIC_PROGRESS_INPUT.appendedMessages.map(
+        (message) => ({
+          ...message,
+          id: `${message.id}-after-profile-edit`,
+        }),
+      ),
+    };
+    const secondProgress = await repository.saveProgress(
+      token(second),
+      secondProgressInput,
+    );
+    const secondReview = await repository.saveSummary(token(secondProgress), {
+      ...SYNTHETIC_SUMMARY_INPUT,
+      content: {
+        ...SYNTHETIC_SUMMARY_INPUT.content,
+        subjective: SYNTHETIC_SUMMARY_INPUT.content.subjective.map((item) => ({
+          ...item,
+          evidenceMessageIds: item.evidenceMessageIds.map(
+            (id) => `${id}-after-profile-edit`,
+          ),
+        })),
+      },
+    });
+    const secondCompleted = await repository.complete(token(secondReview));
 
     const stored = (await repository.listCompleted()).find(
       ({ id }) => id === completed.interview.id,
     );
     expect(stored?.profileSnapshot?.capturedAt).toBe(completedAt);
     expect(stored?.profileSnapshot?.profile.displayName).toBe("김테스트");
+    expect(secondCompleted.interview.profileSnapshot?.profile.displayName).toBe(
+      "이테스트",
+    );
     expect(stored?.profileSnapshot?.profile.birthDate).toBe("1958-05-20");
     expect(stored?.profileSnapshot?.medicalProfile.conditions).toEqual({
       state: "known",
