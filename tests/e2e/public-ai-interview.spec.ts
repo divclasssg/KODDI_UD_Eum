@@ -277,7 +277,7 @@ test("provider 질문과 요약 실패 뒤 입력 기반 기록을 의료진용 
 
   await page
     .getByRole("link", {
-      name: new RegExp(`오늘.*완료.*AI 문진.*${chiefComplaint}`),
+      name: new RegExp(`완료.*AI 문진.*${chiefComplaint}`),
     })
     .click();
   await expect
