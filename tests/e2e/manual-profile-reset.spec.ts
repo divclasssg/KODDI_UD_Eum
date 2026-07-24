@@ -284,3 +284,56 @@ test("전체 삭제는 8개 store를 비운 뒤 온보딩으로 돌아간다", a
   await page.getByRole("button", { name: "처음부터 시작하기" }).click();
   await expect(page.getByRole("heading", { name: "병원 문진, 더 쉽고 편하게." })).toBeVisible();
 });
+
+test("기록 상세에서 목록 위치와 선택한 기록으로 돌아간다", async ({ page }) => {
+  await page.setViewportSize({ width: 393, height: 852 });
+  const externalOperationRequests: string[] = [];
+  page.on("request", (request) => {
+    if (/\/api\/(?:ai|media|stt)\//.test(request.url())) {
+      externalOperationRequests.push(request.url());
+    }
+  });
+
+  await completeSyntheticOnboarding(page);
+  for (let index = 0; index < 6; index += 1) {
+    await completeManualInterview(page, `복귀 ${index}`);
+  }
+  await page.getByRole("button", { name: "기록 보기" }).click();
+
+  const target = page.getByRole("link", { name: /합성 두통 복귀 0/ });
+  await target.scrollIntoViewIfNeeded();
+  const scrollBeforeOpen = await page.evaluate(() => window.scrollY);
+  expect(scrollBeforeOpen).toBeGreaterThan(0);
+  const targetPath = await target.getAttribute("href");
+  if (!targetPath) {
+    throw new Error("선택한 기록의 상세 경로를 확인할 수 없습니다.");
+  }
+  await target.click();
+  await expectExactPathname(page, targetPath);
+  await expect(
+    page.getByRole("heading", { name: "문진 기록", exact: true }),
+  ).toBeVisible();
+
+  await page.goBack();
+  await expect(target).toBeVisible();
+  await expect
+    .poll(() => page.evaluate(() => window.scrollY))
+    .toBeGreaterThan(0);
+  expect(
+    Math.abs(
+      (await page.evaluate(() => window.scrollY)) - scrollBeforeOpen,
+    ),
+  ).toBeLessThanOrEqual(160);
+
+  await target.click();
+  await page.getByRole("link", { name: "기록 목록으로" }).click();
+  await expect(target).toBeVisible();
+  await expect(target).toBeFocused();
+
+  await target.click();
+  await page.getByRole("link", { name: "의료진에게 보여주기" }).click();
+  await page.getByRole("link", { name: "기록 상세로 돌아가기" }).click();
+  await page.getByRole("link", { name: "기록 목록으로" }).click();
+  await expect(target).toBeFocused();
+  expect(externalOperationRequests).toEqual([]);
+});

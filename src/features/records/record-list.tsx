@@ -9,6 +9,7 @@ import {
   type RecordsListState,
 } from "./load-records";
 import {
+  prepareSelectedRecordListReturn,
   recordIdFromListHash,
   recordListAnchorId,
 } from "./record-list-navigation";
@@ -130,6 +131,7 @@ export function RecordListScreen({
                   className={styles.recordLink}
                   href={`/records/${encodeURIComponent(record.id)}`}
                   id={recordListAnchorId(record.id)}
+                  onNavigate={() => prepareSelectedRecordListReturn(record.id)}
                 >
                   <span className={styles.recordMeta}>
                     <span>{record.dateLabel}</span>

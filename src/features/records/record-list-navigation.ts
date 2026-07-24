@@ -8,6 +8,14 @@ export function recordListHref(interviewId: string): string {
   return `/records#${recordListAnchorId(interviewId)}`;
 }
 
+export function prepareSelectedRecordListReturn(interviewId: string): void {
+  window.history.replaceState(
+    window.history.state,
+    "",
+    recordListHref(interviewId),
+  );
+}
+
 export function recordIdFromListHash(hash: string): string | undefined {
   const prefix = `#${RECORD_LIST_ANCHOR_PREFIX}`;
   if (!hash.startsWith(prefix)) return undefined;
