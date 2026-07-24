@@ -11,6 +11,7 @@ import {
   loadRecordDetail,
   type RecordDetailState,
 } from "./load-records";
+import { recordListHref } from "./record-list-navigation";
 import type { RecordDetailViewModel } from "./records-view-model";
 import styles from "./records.module.scss";
 
@@ -102,7 +103,7 @@ function ReadyRecordDetail({ record }: { record: RecordDetailViewModel }) {
       >
         내 정보 수정
       </Link>
-      <Link className={styles.secondaryLink} href="/records">
+      <Link className={styles.secondaryLink} href={recordListHref(record.id)}>
         기록 목록으로
       </Link>
     </>

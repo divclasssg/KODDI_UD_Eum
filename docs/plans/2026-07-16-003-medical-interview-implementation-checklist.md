@@ -12,16 +12,18 @@ source_plan: 2026-07-16-002-feat-medical-interview-ut-ready-app-plan.md
 
 ## 현재 상태
 
-- 마지막 갱신: 2026-07-23
+- 마지막 갱신: 2026-07-24
 - 구현 진행률: **6/9 units**
-- P0 요구사항: **0/20 검증 완료**
+- P0 요구사항: **14/20 검증 완료**
 - 자동 검증 gate: **7/7 통과**
-- 다음 작업: **닫기·뒤로가기 뒤 동일 record/scroll 복원 계약과 후순위 U5 speech/U8 photo 결정**
+- 현재 단계: **데모 핵심 경로 마감 — 기록 복원·현황·후순위·Persona gate 완료**
+- 다음 작업: **별도 승인 시 U5 speech/TTS 또는 U8 photo milestone 재개; 현재 데모 핵심 경로 마감**
 - U2 저장 계획: [IndexedDB v1 repository 구현 계획](../superpowers/plans/2026-07-22-u2-indexeddb-v1-repository-implementation-plan.md)
 - U2 화면 연결 계획: [온보딩·홈 구현 계획](../superpowers/plans/2026-07-22-u2-onboarding-home-integration-plan.md), [실제 제품형 v1 개정 계획](../superpowers/plans/2026-07-22-u2-v1-actual-onboarding-revision-plan.md)
 - U2 완료 계획: [수동 문진·프로필 수정·reset 구현 계획](../superpowers/plans/2026-07-22-u2-remaining-manual-profile-reset-implementation-plan.md)
 - U3 설계·계획: [문진 상태·입력 계약 설계](../superpowers/specs/2026-07-22-u3-interview-state-input-contracts-design.md), [구현 계획](../superpowers/plans/2026-07-22-u3-interview-state-input-contracts-implementation-plan.md)
 - U7 설계·계획: [기록 상세 프로필 수정 설계](../superpowers/specs/2026-07-23-u7-record-profile-edit-design.md), [구현 계획](../superpowers/plans/2026-07-23-u7-record-profile-edit-implementation-plan.md)
+- 데모 마감 설계·계획: [navigation·Persona 설계](../superpowers/specs/2026-07-24-demo-closure-navigation-persona-design.md), [구현 계획](../superpowers/plans/2026-07-24-demo-closure-navigation-persona-implementation-plan.md)
 - 세부 구현 계획: [대표 문진 화면 구현 계획](../superpowers/plans/2026-07-19-interview-screen-implementation-plan.md)
 - Modal 계획: [외부 데모 구현 계획](../superpowers/plans/2026-07-20-modal-medgemma-external-demo-implementation-plan.md)
 - 음성 계획: [모의 음성 입력 구현 계획](../superpowers/plans/2026-07-20-simulated-voice-input-implementation-plan.md)

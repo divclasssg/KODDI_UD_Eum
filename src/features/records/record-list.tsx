@@ -8,6 +8,11 @@ import {
   loadRecordsList,
   type RecordsListState,
 } from "./load-records";
+import {
+  prepareSelectedRecordListReturn,
+  recordIdFromListHash,
+  recordListAnchorId,
+} from "./record-list-navigation";
 import styles from "./records.module.scss";
 
 type RecordListScreenProps = {
@@ -50,6 +55,21 @@ export function RecordListScreen({
       active = false;
     };
   }, [attempt, loadState, navigateTo]);
+
+  useEffect(() => {
+    if (state.status !== "ready") return;
+    const interviewId = recordIdFromListHash(window.location.hash);
+    if (
+      !interviewId ||
+      !state.records.some((record) => record.id === interviewId)
+    ) {
+      return;
+    }
+    const target = document.getElementById(recordListAnchorId(interviewId));
+    if (!(target instanceof HTMLAnchorElement)) return;
+    target.scrollIntoView({ block: "center" });
+    target.focus({ preventScroll: true });
+  }, [state]);
 
   const retry = () => {
     setState({ status: "loading" });
@@ -110,6 +130,8 @@ export function RecordListScreen({
                 <Link
                   className={styles.recordLink}
                   href={`/records/${encodeURIComponent(record.id)}`}
+                  id={recordListAnchorId(record.id)}
+                  onNavigate={() => prepareSelectedRecordListReturn(record.id)}
                 >
                   <span className={styles.recordMeta}>
                     <span>{record.dateLabel}</span>

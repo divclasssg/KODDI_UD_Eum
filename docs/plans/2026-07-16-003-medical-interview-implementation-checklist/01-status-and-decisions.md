@@ -7,15 +7,40 @@
 
 ## 현재 상태
 
-- 마지막 갱신: 2026-07-23
-- 앱 구현 진행률: **6/9 units 완료**
-- P0 요구사항: **0/20 검증 완료**
+- 마지막 갱신: 2026-07-24
+- 구현 진행률: **6/9 units**
+- P0 요구사항: **14/20 검증 완료**
 - 자동 검증 gate: **7/7 통과**
-- 현재 단계: **U7 완료 — 실제 IndexedDB 기록 상세에서 프로필 수정 후 같은 기록으로 복귀**
-- 다음 작업: **닫기·뒤로가기 뒤 동일 record/scroll 복원 계약과 후순위 U5 speech/U8 photo 결정**
+- 현재 단계: **데모 핵심 경로 마감 — 기록 복원·현황·후순위·Persona gate 완료**
+- 다음 작업: **별도 승인 시 U5 speech/TTS 또는 U8 photo milestone 재개; 현재 데모 핵심 경로 마감**
 - 현재 차단 요소: **의료 콘텐츠·speech interaction·후속 UI 계약 미확정**
 
 현재 앱 저장소에는 Next.js App Router 기반 `/interview/new` 개발 fixture와 Persona 없는 실제 `/interview/manual`, `/interview/ai` 경로가 분리돼 있다. 공개 흐름은 `/onboarding`의 AI 전송 동의를 홈의 주 행동에 반영하고, 동의한 사용자만 V2 allowlist 질문·근거 요약 여정으로 진입한다. 질문 안전성과 답변 근거를 client/server에서 검증하고 위험 신호는 일반 AI 질문보다 먼저 승인된 세 행동으로 전환한다. request identity, durable revision, reset generation과 abort signal은 분리돼 reload·Strict Mode·reset·dispose 뒤 늦은 UI와 IndexedDB 쓰기를 폐기한다. AI 거부 사용자는 외부 요청 없이 `manual-intake-v1`을 저장·복원·완료할 수 있다. 질문·요약 provider가 실패하면 같은 AI 문진 안에서 결정론적 대체 질문과 입력 기반 요약으로 복구하며, 완료 기록은 목록·상세·의료진 참고용 화면까지 이어진다. profile snapshot과 IndexedDB version 1·8개 store는 유지하며 전체 삭제는 모든 store를 한 transaction으로 비운다. `/records` 목록, 동일 ID 상세와 completed·confirmed 기록 전용 의료진 참고용 화면은 실제 IndexedDB에 연결됐다. U7은 첫 완료 record의 browser IndexedDB ID로 목록→상세→프로필 수정→같은 상세 복귀를 검증하고, 이후 완료 record만 수정된 profile snapshot을 저장한다. 실제 공유·음성·사진 처리는 아직 범위 밖이며 U5 speech와 U8 photo는 후순위로 유지한다.
+
+## R1~R20 P0 증거 현황
+
+| ID | 상태 | 직접 증거 또는 남은 차이 |
+|---|---|---|
+| R1 | 완료 | Next.js 16.2.10·TypeScript·ESLint·React Compiler·`src`·App Router·`@/*` 구성과 build gate |
+| R2 | 부분 | SCSS token 계층은 구현됐으나 CSS Module consumer 이름은 camelCase를 포함해 원문의 하이픈 규칙 전체와 불일치 |
+| R3 | 완료 | 393×852 onboarding→문진→기록→clinician→profile 공개 Chromium |
+| R4 | 완료 | 18px·48px token 계약, visible focus, non-color label, status·alert와 keyboard E2E |
+| R5 | 완료 | 쉬운 한국어, AI 질문 한 개, 상태별 primary CTA 계약 |
+| R6 | 완료 | 로컬 저장·민감정보·AI 전송 동의와 AI 비동의 manual 외부 요청 0건 |
+| R7 | 완료 | 기본·의료정보 입력, 현재 profile 수정, 과거 snapshot 불변 |
+| R8 | 부분 | text·choice·chip 계약은 공개 문진에 연결됐지만 measurement 질문은 공개 question set에 없음 |
+| R9 | 후순위 | 모의 음성 입력 미구현 |
+| R10 | 완료 | 질문별 draft·입력 mode 전환·reload 복원 |
+| R11 | 부분 | 실제 MedGemma 공개 성공은 있으나 현재 follow-up 상한 3이 원문 4~5개와 불일치 |
+| R12 | 완료 | schema·금지 표현·중복·질문형·쉬운 문장 validator |
+| R13 | 완료 | AI 호출 전 urgent preflight와 안전 종료 기록 |
+| R14 | 부분 | 근거 summary 검토·확정은 구현됐지만 사용자 summary item 수정은 미구현 |
+| R15 | 완료 | provider 질문·요약 실패 뒤 입력 보존·결정론적 완주·clinician 기록 |
+| R16 | 후순위 | 사용자 실행형 TTS 미구현 |
+| R17 | 완료 | Asia/Seoul 오늘·시간·상태·주요 증상·완료 우선 최신순 |
+| R18 | 완료 | record detail·원문·completed-only clinician view |
+| R19 | 완료 | 과거 record 상세→현재 profile 수정→같은 record 복귀 |
+| R20 | 완료 | 8개 store 원자 reset과 stale AI·timer 쓰기 폐기 |
 
 ## 상태 표시와 갱신 규칙
 

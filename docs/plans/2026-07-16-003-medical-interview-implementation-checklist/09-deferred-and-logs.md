@@ -47,6 +47,9 @@
 | 2026-07-22 | U1 브라우저→Modal actual | 인증 통과·응답 gate 실패·운영 복구 | mock HTTP 200, actual은 T4 17토큰 생성 뒤 Route 502, 최종 kill switch `1`·인증 503·container 0 | 비용 없는 원인 분석 뒤 승인된 1회 재검증 |
 | 2026-07-22 | U1 browser actual 왕복 timeout | 로컬 TDD 보정 완료 | 운영·direct cold 75초 유지, browser harness만 provider 상한 85초 사용, config 계약 RED→GREEN | 승인된 합성 질문 1회 재검증 |
 | 2026-07-22 | U1 browser actual 재검증 | 완료·운영 잠금 | 합성 질문 1회 HTTP 200·새 질문 58.7초, 즉시 kill switch `1` 재배포·인증 503·container 0 | U2 IndexedDB 계약 |
+| 2026-07-24 | 기록 목록 복귀 위치 복원 | 완료 | stable anchor·선택 record·async list position 복원 구현과 관련 자동 검증 통과 | 데모 핵심 경로 마감 |
+| 2026-07-24 | R1~R20 현황 정합성 | 완료 | root·상세 현황을 `14/20 검증 완료`, `6/9 units`로 통일하고 U5·U8 후순위 결정 반영 | 별도 승인 범위만 재개 |
+| 2026-07-24 | credential-free Persona 접근성 matrix | 7/9 통과·2/9 후순위 | Chromium 7건, 393×852 overflow 0, 대표 keyboard Task 1·3, label·touch target, 공개 Persona 노출·외부 호출 0건 | 김영수 Task 1 TTS·박성훈 Task 1 음성은 별도 speech 승인 시 |
 
 ## 차단 기록
 
@@ -63,8 +66,10 @@
 
 ## 범위 제외 기록
 
-| 날짜 | 항목 | 이유 | 재검토 시점 |
-|---|---|---|---|
-| 2026-07-16 | AI Persona UT 실행 | 실제 검증 대상 앱 구현이 우선 | 앱 P0 완료 후 |
-| 2026-07-16 | 운영·실환자 기능 | 인증·암호화·접근통제 없는 7일 prototype | 별도 운영 계획 수립 시 |
-| 2026-07-16 | PWA cache·PIN·export·영상 | 7일 핵심 Task에 직접 필요하지 않음 | Day 7 이후 |
+| 날짜 | 항목 | 상태 | 이유 | 재검토 시점 |
+|---|---|---|---|---|
+| 2026-07-16 | AI Persona UT 실행 | 범위 제외 | 실제 검증 대상 앱 구현이 우선 | 앱 P0 완료 후 |
+| 2026-07-16 | 운영·실환자 기능 | 범위 제외 | 인증·암호화·접근통제 없는 7일 prototype | 별도 운영 계획 수립 시 |
+| 2026-07-16 | PWA cache·PIN·export·영상 | 범위 제외 | 7일 핵심 Task에 직접 필요하지 않음 | Day 7 이후 |
+| 2026-07-24 | U5 모의 음성·TTS | 후순위 | speech interaction·취소·접근성 계약 미승인, R9·R16 미완료 | 별도 speech milestone 승인 시 |
+| 2026-07-24 | U8 사진·multimodal | conditional-disabled | 전체 보안·파일 lifecycle·actual gate 전 UI 숨김 | 별도 photo milestone 승인 시 |
