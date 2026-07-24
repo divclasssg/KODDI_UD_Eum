@@ -36,6 +36,11 @@ export function resolveTrustedProxyIp(
     return candidate && isIP(candidate) ? candidate : undefined;
   }
 
+  const cloudflare = request.headers.get("cf-connecting-ip")?.trim();
+  if (cloudflare) {
+    return isIP(cloudflare) ? cloudflare : undefined;
+  }
+
   const hostname = new URL(allowedOrigin).hostname;
   if (hostname === "127.0.0.1" || hostname === "localhost") {
     return "127.0.0.1";

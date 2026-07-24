@@ -70,7 +70,12 @@ function createDependencies(provider = createProvider()): AiPostDependencies {
 
 function createRequest(
   body: unknown,
-  overrides: { origin?: string; contentType?: string; forwardedFor?: string } = {},
+  overrides: {
+    origin?: string;
+    contentType?: string;
+    forwardedFor?: string;
+    cloudflareIp?: string;
+  } = {},
 ): Request {
   const headers = new Headers({
     Origin: overrides.origin ?? ALLOWED_ORIGIN,
@@ -81,6 +86,9 @@ function createRequest(
       "x-forwarded-for",
       overrides.forwardedFor ?? "10.0.0.1, 203.0.113.9",
     );
+  }
+  if (overrides.cloudflareIp !== undefined) {
+    headers.set("cf-connecting-ip", overrides.cloudflareIp);
   }
   return new Request(`${ALLOWED_ORIGIN}/api/ai/question`, {
     method: "POST",
@@ -158,6 +166,21 @@ describe("AI Route Handler guard", () => {
     } satisfies AiRequestIdentity);
     expect(identity?.sessionHash).not.toContain(SESSION_ID);
     expect(identity?.ipHash).not.toContain("203.0.113.9");
+  });
+
+  it("Cloudflare 연결 IP로 배포 요청 식별자를 만든다", async () => {
+    const provider = createProvider();
+    const response = await handleAiPost(
+      "question",
+      createRequest(VALID_PUBLIC_CONTEXT, {
+        forwardedFor: "",
+        cloudflareIp: "203.0.113.21",
+      }),
+      createDependencies(provider),
+    );
+
+    expect(response.status).toBe(200);
+    expect(provider.requestQuestion).toHaveBeenCalledTimes(1);
   });
 
   it("summary 요청은 같은 guard 뒤 summary provider만 호출한다", async () => {
