@@ -63,10 +63,10 @@
 
 ## 범위 제외 기록
 
-| 날짜 | 항목 | 이유 | 재검토 시점 |
-|---|---|---|---|
-| 2026-07-16 | AI Persona UT 실행 | 실제 검증 대상 앱 구현이 우선 | 앱 P0 완료 후 |
-| 2026-07-16 | 운영·실환자 기능 | 인증·암호화·접근통제 없는 7일 prototype | 별도 운영 계획 수립 시 |
-| 2026-07-16 | PWA cache·PIN·export·영상 | 7일 핵심 Task에 직접 필요하지 않음 | Day 7 이후 |
+| 날짜 | 항목 | 상태 | 이유 | 재검토 시점 |
+|---|---|---|---|---|
+| 2026-07-16 | AI Persona UT 실행 | 범위 제외 | 실제 검증 대상 앱 구현이 우선 | 앱 P0 완료 후 |
+| 2026-07-16 | 운영·실환자 기능 | 범위 제외 | 인증·암호화·접근통제 없는 7일 prototype | 별도 운영 계획 수립 시 |
+| 2026-07-16 | PWA cache·PIN·export·영상 | 범위 제외 | 7일 핵심 Task에 직접 필요하지 않음 | Day 7 이후 |
 | 2026-07-24 | U5 모의 음성·TTS | 후순위 | speech interaction·취소·접근성 계약 미승인, R9·R16 미완료 | 별도 speech milestone 승인 시 |
 | 2026-07-24 | U8 사진·multimodal | conditional-disabled | 전체 보안·파일 lifecycle·actual gate 전 UI 숨김 | 별도 photo milestone 승인 시 |
