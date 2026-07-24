@@ -94,7 +94,7 @@ flowchart LR
 
 브라우저는 Modal을 직접 호출하지 않는다. Modal proxy 인증정보는 Next.js server-only 환경에서 관리한다. Hugging Face token은 Modal image build 전용 `medgemma-hf` Secret에만 두며, 모델을 image에 내려받은 뒤 실제 질문·요약 요청에는 전달하지 않는다. 어떤 credential도 client bundle, 브라우저 로그와 IndexedDB에 저장하지 않는다.
 
-공개 웹 호스팅은 Modal 추론 배포와 분리한다. 이 설계는 표준 Node.js Route Handler와 server-only 환경 변수를 지원하는 호스트를 전제로 하며, 구체적인 호스팅 사업자는 별도 배포 결정에서 확정한다.
+공개 웹 호스팅은 Modal 추론 배포와 분리한다. 2026-07-24 데모 호스팅은 Vinext와 Cloudflare Worker 호환 경로를 사용하는 OpenAI Sites로 확정했으며, 소유자 전용 mock 배포를 먼저 검증한다. 외부 공개와 실제 Modal 연결은 각각 별도 승인과 운영 검증을 거친다.
 
 ## 6. Provider 계약
 

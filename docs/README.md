@@ -53,6 +53,14 @@
 
 endpoint URL과 token 값은 server-only 환경 변수에만 두며 채팅, 문서, snapshot, git에 기록하지 않는다. mock 통과, actual 통과, 공개 호스팅 통과는 각각 별도 증거로 관리한다.
 
+### Sites 비공개 데모 상태
+
+- 2026-07-24 기준 [KODDI UD Eum 데모](https://koddi-ud-eum-demo.parkseik675440.chatgpt.site)는 OpenAI Sites의 소유자 전용 접근으로 배포했다.
+- Sites 버전 2는 소스 commit `d00b65eab90c0102f9302c49c995405fe9bbc471`, 환경 revision 2를 사용한다. `MEDGEMMA_MODE=mock`, `MEDGEMMA_ACTUAL_DISABLED=1`이므로 이 배포는 Modal GPU를 호출하지 않는다.
+- 프로덕션에서 `/`와 `/onboarding` 200, 합성 V2 요청의 `/api/ai/question`과 `/api/ai/summary` 200을 확인했다. 질문 응답은 `어디가 불편하신가요?`, 요약 응답은 합성 답변 `무릎이 이틀 전부터 불편해요.`의 evidence ID를 유지했다.
+- 첫 배포 점검에서 Cloudflare가 `x-forwarded-for` 대신 `cf-connecting-ip`를 제공해 AI route가 400을 반환했다. 회귀 테스트를 추가하고 해당 표준 헤더를 허용한 뒤 같은 프로덕션 요청을 다시 통과시켰다.
+- 실제 MedGemma 공개 응답 전환은 별도 비용 승인, Sites의 Modal endpoint·proxy secret 설정, actual kill switch 해제, 합성 1회 검증과 즉시 재잠금 절차가 필요하다.
+
 ## 구현 판단의 우선순위
 
 1. 현재 사용자 지시
