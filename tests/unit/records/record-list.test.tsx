@@ -13,6 +13,7 @@ import { RecordListScreen } from "@/features/records/record-list";
 const mocks = vi.hoisted(() => ({
   replace: vi.fn(),
 }));
+const scrollIntoView = vi.fn();
 
 vi.mock("next/navigation", () => {
   const router = { replace: mocks.replace };
@@ -47,6 +48,11 @@ function deferred<T>() {
 describe("RecordListScreen", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+      configurable: true,
+      value: scrollIntoView,
+    });
+    window.history.replaceState({}, "", "/records");
   });
 
   it("기록 label을 보이고 인코딩된 상세 link를 제공한다", async () => {
@@ -65,6 +71,32 @@ describe("RecordListScreen", () => {
     expect(screen.getByText("완료")).toBeVisible();
     expect(screen.getByText("AI 문진")).toBeVisible();
     expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+  });
+
+  it("ready 뒤 fragment 대상 기록으로 스크롤하고 focus한다", async () => {
+    window.history.replaceState(
+      {},
+      "",
+      `/records#record-${encodeURIComponent(READY_RECORD.id)}`,
+    );
+    renderState({ status: "ready", records: [READY_RECORD] });
+
+    const recordLink = await screen.findByRole("link", {
+      name: /무릎이 불편해요/,
+    });
+    await waitFor(() => expect(recordLink).toHaveFocus());
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: "center" });
+  });
+
+  it("손상되거나 목록에 없는 fragment는 scroll과 focus를 바꾸지 않는다", async () => {
+    window.history.replaceState({}, "", "/records#record-missing");
+    renderState({ status: "ready", records: [READY_RECORD] });
+
+    const recordLink = await screen.findByRole("link", {
+      name: /무릎이 불편해요/,
+    });
+    expect(recordLink).not.toHaveFocus();
+    expect(scrollIntoView).not.toHaveBeenCalled();
   });
 
   it("빈 목록에서 새 문진과 홈 복귀 link를 제공한다", async () => {

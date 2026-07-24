@@ -95,6 +95,10 @@ describe("RecordDetailScreen", () => {
       "href",
       "/profile?returnTo=%2Frecords%2Fcompleted-record",
     );
+    expect(screen.getByRole("link", { name: "기록 목록으로" })).toHaveAttribute(
+      "href",
+      `/records#record-${encodeURIComponent(COMPLETED_RECORD.id)}`,
+    );
     expect(
       screen.getAllByRole("heading").map(({ textContent }) => textContent),
     ).toEqual([
