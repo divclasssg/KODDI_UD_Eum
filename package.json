@@ -9,11 +9,15 @@
   },
   "scripts": {
     "dev": "next dev --hostname 127.0.0.1",
+    "dev:sites": "WRANGLER_LOG_PATH=.wrangler/wrangler.log vinext dev",
     "build": "next build --webpack",
+    "build:sites": "WRANGLER_LOG_PATH=.wrangler/wrangler.log vinext build && next typegen",
     "start": "next start --hostname 127.0.0.1",
+    "start:sites": "WRANGLER_LOG_PATH=.wrangler/wrangler.log vite preview --host 127.0.0.1 --strictPort",
     "lint": "eslint",
     "test:icons": "node --test tests/icon-*-contract.test.mjs",
     "test:e2e": "next build --webpack && playwright test",
+    "test:e2e:sites": "playwright test --config playwright.sites.config.ts",
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:actual": "vitest run --config vitest.actual.config.ts",
     "test:route-actual": "PUBLIC_AI_MAX_FOLLOW_UPS=1 next build --webpack && playwright test --config playwright.actual.config.ts",
@@ -22,12 +26,13 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "next": "16.2.10",
-    "react": "19.2.4",
-    "react-dom": "19.2.4",
+    "next": "16.2.11",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
     "server-only": "^0.0.1"
   },
   "devDependencies": {
+    "@cloudflare/vite-plugin": "1.47.0",
     "@playwright/test": "^1.61.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
@@ -35,13 +40,20 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@vitejs/plugin-react": "6.0.2",
+    "@vitejs/plugin-rsc": "0.5.30",
     "babel-plugin-react-compiler": "1.0.0",
     "eslint": "^9",
-    "eslint-config-next": "16.2.10",
+    "eslint-config-next": "16.2.11",
     "fake-indexeddb": "^6.2.5",
     "jsdom": "^29.1.1",
+    "react-server-dom-webpack": "19.2.8",
     "sass": "^1.101.0",
     "typescript": "^5",
-    "vitest": "^4.1.10"
-  }
+    "vinext": "1.0.0-beta.3",
+    "vite": "8.1.5",
+    "vitest": "^4.1.10",
+    "wrangler": "4.114.0"
+  },
+  "type": "module"
 }

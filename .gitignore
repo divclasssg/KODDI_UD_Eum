@@ -28,6 +28,8 @@ __pycache__/
 
 # production
 /build
+/dist/
+/.wrangler/
 
 # misc
 .DS_Store
