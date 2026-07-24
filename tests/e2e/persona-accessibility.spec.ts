@@ -89,6 +89,13 @@ async function activateRadio(
   }
 
   const radios = page.getByRole("radio");
+  if (await target.isChecked()) {
+    await tabTo(page, target);
+    await page.keyboard.press("Space");
+    await expect(target).toBeChecked();
+    return;
+  }
+
   await tabTo(page, radios.first());
   const count = await radios.count();
   for (let index = 0; index < count; index += 1) {
@@ -104,25 +111,92 @@ async function activateRadio(
   throw new Error("키보드 방향키로 radio 선택 항목에 도달하지 못했습니다.");
 }
 
-async function completeOnboarding(page: Page, persona: PersonaCase) {
+async function completeOnboarding(
+  page: Page,
+  persona: PersonaCase,
+  keyboard = false,
+) {
   await page.setViewportSize({ width: 393, height: 852 });
   await page.goto("/onboarding");
-  await page.getByRole("button", { name: "시작하기" }).click();
-  await page.getByRole("button", { name: "다음" }).click();
-  await page.getByRole("button", { name: "계속" }).click();
-  await page.getByLabel("생년월일").fill("1960-05-20");
-  await page.getByRole("button", { name: "확인하고 계속" }).click();
-  await page.getByRole("button", { name: "동의하고 계속" }).click();
-  await page
-    .getByRole("button", { name: "민감정보 처리에 동의하고 계속" })
-    .click();
-  await page.getByRole("button", { name: "AI 전송 없이 계속" }).click();
-  await page.getByLabel("이름").fill(persona.publicName);
-  await page.getByLabel("답하지 않음").check();
-  await page.getByRole("button", { name: "기본정보 확인" }).click();
-  await page.getByRole("button", { name: "의료정보 준비하기" }).click();
-  await page.getByRole("button", { name: "입력을 마치고 확인" }).click();
-  await page.getByRole("button", { name: "저장하고 홈으로" }).click();
+  await activate(
+    page,
+    page.getByRole("button", { name: "시작하기" }),
+    keyboard,
+  );
+  await activate(
+    page,
+    page.getByRole("button", { name: "다음" }),
+    keyboard,
+  );
+  await activate(
+    page,
+    page.getByRole("button", { name: "계속" }),
+    keyboard,
+  );
+
+  const birthDate = page.getByLabel("생년월일");
+  if (keyboard) {
+    await tabTo(page, birthDate);
+    await expect(birthDate).toBeFocused();
+    await page.keyboard.type("05201960");
+    await expect(birthDate).toHaveValue("1960-05-20");
+  } else {
+    await birthDate.fill("1960-05-20");
+  }
+
+  await activate(
+    page,
+    page.getByRole("button", { name: "확인하고 계속" }),
+    keyboard,
+  );
+  await activate(
+    page,
+    page.getByRole("button", { name: "동의하고 계속" }),
+    keyboard,
+  );
+  await activate(
+    page,
+    page.getByRole("button", {
+      name: "민감정보 처리에 동의하고 계속",
+    }),
+    keyboard,
+  );
+  await activate(
+    page,
+    page.getByRole("button", { name: "AI 전송 없이 계속" }),
+    keyboard,
+  );
+
+  const name = page.getByLabel("이름");
+  if (keyboard) {
+    await tabTo(page, name);
+    await expect(name).toBeFocused();
+    await page.keyboard.type(persona.publicName);
+  } else {
+    await name.fill(persona.publicName);
+  }
+
+  await activateRadio(page, page.getByLabel("답하지 않음"), keyboard);
+  await activate(
+    page,
+    page.getByRole("button", { name: "기본정보 확인" }),
+    keyboard,
+  );
+  await activate(
+    page,
+    page.getByRole("button", { name: "의료정보 준비하기" }),
+    keyboard,
+  );
+  await activate(
+    page,
+    page.getByRole("button", { name: "입력을 마치고 확인" }),
+    keyboard,
+  );
+  await activate(
+    page,
+    page.getByRole("button", { name: "저장하고 홈으로" }),
+    keyboard,
+  );
   await expect(
     page.getByRole("heading", {
       name: `${persona.publicName}님, 안녕하세요`,
@@ -241,7 +315,7 @@ test("이민정 기준 Task 1 공개 온보딩과 문진을 keyboard로 완료�
 }) => {
   const persona = PERSONAS[1]!;
   const requests = trackExternalOperations(page);
-  await completeOnboarding(page, persona);
+  await completeOnboarding(page, persona, true);
   await completeManualInterview(page, persona.complaint, "Task 1", true);
   await expect(
     page.getByRole("status").filter({ hasText: "문진을 저장했어요." }),
@@ -289,15 +363,20 @@ for (const persona of PERSONAS) {
     await returnHome(page);
     await completeManualInterview(page, persona.complaint, "최신", false);
     await returnHome(page);
-    await page.getByRole("button", { name: "기록 보기" }).click();
+    const keyboard = persona.id === "seonghun";
+    await activate(
+      page,
+      page.getByRole("button", { name: "기록 보기" }),
+      keyboard,
+    );
     const past = page.getByRole("link", {
       name: new RegExp(`${persona.complaint} 과거`),
     });
-    await past.click();
+    await activate(page, past, keyboard);
     await editCurrentProfile(
       page,
       `${persona.publicName} 수정`,
-      persona.id === "seonghun",
+      keyboard,
     );
     await expect(
       page.getByRole("heading", { name: "문진 기록" }),

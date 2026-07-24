@@ -29,7 +29,11 @@
 
 증거(2026-07-23 U7): lint·typecheck, unit 42개 파일·469건, integration 7개 파일·73건, `git diff --check`가 통과했다. `npm run test:e2e`의 production build는 통과했고 sandbox server bind는 `EPERM`으로 중단됐다. 같은 build에서 승인된 credential-free `npx playwright test`는 Chromium 25건을 통과했다. `manual-profile-reset.spec.ts` focused Chromium 4건도 통과해 첫 completed ID의 ready detail 동일 record 복귀, old/new snapshot, 393×852 overflow, 외부 요청 0건과 Tab·Enter·키보드 타이핑만 사용한 수정·저장·취소 확인·계속 수정·폐기를 검증했다.
 
-증거(2026-07-24 Persona): `npx playwright test tests/e2e/persona-accessibility.spec.ts --project=chromium`의 credential-free Chromium 7건이 통과했다. 김영수 Task 2·3, 이민정 Task 1·2·3, 박성훈 Task 2·3을 공개 UI만으로 검증해 `7/9 통과, 2/9 후순위`로 확정했다. 393×852 가로 overflow 0, 대표 keyboard Task 1·Task 3, 명시적 label과 48px 이상 touch target, 공개 body의 Persona·fixture label 노출 0건, AI·Modal·GPU·media·STT 호출 0건을 확인했다. 200% 확대는 2026-07-19 실제 Chrome 수동 증거를 재사용했으며 이번 마감에서 새 검증으로 주장하거나 합성 재실행하지 않았다.
+증거(2026-07-24 Persona): `npx playwright test tests/e2e/persona-accessibility.spec.ts --project=chromium`의 credential-free Chromium 7건이 통과했다. 김영수 Task 2·3, 이민정 Task 1·2·3, 박성훈 Task 2·3을 공개 UI만으로 검증해 `7/9 통과, 2/9 후순위`로 확정했다. 393×852 가로 overflow 0, 명시적 label과 48px 이상 touch target, 공개 body의 Persona·fixture label 노출 0건, AI·Modal·GPU·media·STT 호출 0건을 확인했다. 200% 확대는 2026-07-19 실제 Chrome 수동 증거를 재사용했으며 이번 마감에서 새 검증으로 주장하거나 합성 재실행하지 않았다.
+
+증거(2026-07-24 최종 milestone): 같은 committed tree에서 `npm run lint`와 `npm run typecheck`는 종료 코드 0, `npm run test:unit`은 43개 파일·474건, `npm run test:integration`은 7개 파일·73건으로 통과했다. 최초 `npm run test:e2e`의 webpack production build는 성공했지만 Playwright web server의 sandbox `127.0.0.1:3000` bind가 `EPERM`을 반환해 combined 명령은 종료 코드 1이었다. 성공한 같은 build를 재사용한 승인된 `npx playwright test`는 종료 코드 0, Chromium 34/34로 통과했다.
+
+증거(2026-07-24 keyboard 교정 재검증): `npx playwright test tests/e2e/persona-accessibility.spec.ts --project=chromium --grep '이민정 기준 Task 1|seonghun 기준 Task 3'`은 승인된 localhost에서 종료 코드 0, Chromium 2/2로 통과했고 `npx eslint tests/e2e/persona-accessibility.spec.ts`도 종료 코드 0이었다. 이어 현재 tree에서 정확히 한 번 실행한 `npm run test:e2e`는 승인된 localhost에서 종료 코드 0으로 webpack production build와 Chromium 34/34를 모두 통과했다. 대표 keyboard 증거는 Task 1의 온보딩부터 수동 문진 저장까지 전체 여정과 Task 3의 기록 진입, 과거 기록 열기, 현재 profile 이름 수정, 변경사항 저장까지를 포함한다.
 
 ### 핵심 사용자 과업 Gate
 
