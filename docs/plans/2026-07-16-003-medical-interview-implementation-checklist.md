@@ -16,8 +16,8 @@ source_plan: 2026-07-16-002-feat-medical-interview-ut-ready-app-plan.md
 - 구현 진행률: **6/9 units**
 - P0 요구사항: **14/20 검증 완료**
 - 자동 검증 gate: **7/7 통과**
-- 현재 단계: **데모 마감 진행 — 기록 복원 완료, 현황·후순위·Persona gate 정리**
-- 다음 작업: **후순위 U5 speech/U8 photo와 Persona gate 결정**
+- 현재 단계: **데모 핵심 경로 마감 — 기록 복원·현황·후순위·Persona gate 완료**
+- 다음 작업: **별도 승인 시 U5 speech/TTS 또는 U8 photo milestone 재개; 현재 데모 핵심 경로 마감**
 - U2 저장 계획: [IndexedDB v1 repository 구현 계획](../superpowers/plans/2026-07-22-u2-indexeddb-v1-repository-implementation-plan.md)
 - U2 화면 연결 계획: [온보딩·홈 구현 계획](../superpowers/plans/2026-07-22-u2-onboarding-home-integration-plan.md), [실제 제품형 v1 개정 계획](../superpowers/plans/2026-07-22-u2-v1-actual-onboarding-revision-plan.md)
 - U2 완료 계획: [수동 문진·프로필 수정·reset 구현 계획](../superpowers/plans/2026-07-22-u2-remaining-manual-profile-reset-implementation-plan.md)

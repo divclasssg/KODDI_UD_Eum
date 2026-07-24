@@ -29,6 +29,8 @@
 
 증거(2026-07-23 U7): lint·typecheck, unit 42개 파일·469건, integration 7개 파일·73건, `git diff --check`가 통과했다. `npm run test:e2e`의 production build는 통과했고 sandbox server bind는 `EPERM`으로 중단됐다. 같은 build에서 승인된 credential-free `npx playwright test`는 Chromium 25건을 통과했다. `manual-profile-reset.spec.ts` focused Chromium 4건도 통과해 첫 completed ID의 ready detail 동일 record 복귀, old/new snapshot, 393×852 overflow, 외부 요청 0건과 Tab·Enter·키보드 타이핑만 사용한 수정·저장·취소 확인·계속 수정·폐기를 검증했다.
 
+증거(2026-07-24 Persona): `npx playwright test tests/e2e/persona-accessibility.spec.ts --project=chromium`의 credential-free Chromium 7건이 통과했다. 김영수 Task 2·3, 이민정 Task 1·2·3, 박성훈 Task 2·3을 공개 UI만으로 검증해 `7/9 통과, 2/9 후순위`로 확정했다. 393×852 가로 overflow 0, 대표 keyboard Task 1·Task 3, 명시적 label과 48px 이상 touch target, 공개 body의 Persona·fixture label 노출 0건, AI·Modal·GPU·media·STT 호출 0건을 확인했다. 200% 확대는 2026-07-19 실제 Chrome 수동 증거를 재사용했으며 이번 마감에서 새 검증으로 주장하거나 합성 재실행하지 않았다.
+
 ### 핵심 사용자 과업 Gate
 
 - [x] Task 1A actual AI 문진·요약 확정·completed 저장
